@@ -12,10 +12,17 @@ namespace SliceAR
         [Range(16, 128)] public int resolution = 64;
         public Vector3 rotationEuler = new Vector3(15f, 25f, 0f);
 
+        [Tooltip("Generate the volume automatically on Start (3D mode). Disable when an external " +
+                 "controller drives generation, e.g. the AR mode controller.")]
+        public bool generateOnStart = true;
+
         private VolumeRenderedObject spawned;
 
         private void Start()
         {
+            if (!generateOnStart)
+                return;
+
             var volume = Generate();
             var slicer = GetComponent<MotionSlicer>();
             if (slicer != null)

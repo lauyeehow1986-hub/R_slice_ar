@@ -8,4 +8,5 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ThreeDMode.unity
     guid: 3a1c7bb834c515848a1dc9288c6a965f
-  m_configObjects: {}
+  m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 51f9e71821004364bbf72d6ae191d67d, type: 2}
