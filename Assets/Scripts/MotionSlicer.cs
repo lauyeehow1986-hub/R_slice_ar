@@ -4,28 +4,30 @@ using UnityVolumeRendering;
 namespace SliceAR
 {
     /// <summary>
-    /// Drives a UnityVolumeRendering <see cref="CrossSectionPlane"/> from device motion.
-    /// On a device with a gyroscope the plane's orientation follows the device attitude
-    /// ("move the device to define the cut" — the core Slice-AR interaction). In the editor,
-    /// where there is no gyroscope, it slowly auto-sweeps so the slicing is visible without
-    /// hardware. Phase 3 will replace the gyro source with the AR camera pose.
+    /// 3D-mode pose driver. Pivots the active slicing representation (managed by
+    /// <see cref="SliceController"/>) at the volume centre and orients it from the device
+    /// gyroscope ("move the device to define the cut" — the core Slice-AR interaction). In the
+    /// editor, where there is no gyroscope, it slowly auto-sweeps so the slicing is visible
+    /// without hardware.
     /// </summary>
+    [RequireComponent(typeof(SliceController))]
     public class MotionSlicer : MonoBehaviour
     {
         [Tooltip("Degrees/second for the editor auto-sweep fallback (used when no gyroscope).")]
         public float editorSweepSpeed = 30f;
 
-        private Transform planeTransform;
+        private SliceController controller;
         private Transform pivot;
         private bool gyroActive;
+        private Quaternion sweepRotation = Quaternion.identity;
 
-        /// <summary>Spawn a cross-section plane for <paramref name="volume"/> and start driving it.</summary>
+        /// <summary>Set up slicing for <paramref name="volume"/>, driven by device motion.</summary>
         public void Attach(VolumeRenderedObject volume)
         {
-            VolumeObjectFactory.SpawnCrossSectionPlane(volume);
-            var plane = Object.FindObjectOfType<CrossSectionPlane>();
-            if (plane != null)
-                planeTransform = plane.transform;
+            controller = GetComponent<SliceController>();
+            if (controller == null)
+                controller = gameObject.AddComponent<SliceController>();
+            controller.Setup(volume);
             pivot = volume.transform;
 
             if (SystemInfo.supportsGyroscope)
@@ -37,16 +39,21 @@ namespace SliceAR
 
         private void Update()
         {
-            if (planeTransform == null || pivot == null)
+            if (controller == null || pivot == null)
                 return;
 
-            // Pivot the cutting plane at the volume centre.
-            planeTransform.position = pivot.position;
-
+            Quaternion rotation;
             if (gyroActive)
-                planeTransform.rotation = GyroToUnity(Input.gyro.attitude);
+            {
+                rotation = GyroToUnity(Input.gyro.attitude);
+            }
             else
-                planeTransform.Rotate(Vector3.up, editorSweepSpeed * Time.deltaTime, Space.World);
+            {
+                sweepRotation *= Quaternion.AngleAxis(editorSweepSpeed * Time.deltaTime, Vector3.up);
+                rotation = sweepRotation;
+            }
+
+            controller.ApplyPose(pivot.position, rotation);
         }
 
         // Convert a right-handed gyroscope attitude into Unity's left-handed world space.

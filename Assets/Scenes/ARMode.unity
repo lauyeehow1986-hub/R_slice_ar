@@ -521,8 +521,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4966719baa26e4b0e8231a24d9bd491a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARCameraManager
-  m_FocusMode: 1
-  m_LightEstimationMode: 0
+  m_FocusMode: -1
+  m_LightEstimationMode: -1
   m_AutoFocus: 1
   m_ImageStabilization: 0
   m_LightEstimation: 0
@@ -598,6 +598,7 @@ GameObject:
   - component: {fileID: 1190977747}
   - component: {fileID: 1190977746}
   - component: {fileID: 1190977745}
+  - component: {fileID: 1190977748}
   m_Layer: 0
   m_Name: VolumeSpawner
   m_TagString: Untagged
@@ -649,6 +650,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1190977748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190977744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8729587313b45024586a4b13fbdf69e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SliceAR.SliceModeUI
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
