@@ -1,3 +1,7 @@
+# Verification screenshots (not part of the app)
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta
+
 # Unity generated
 [Ll]ibrary/
 [Tt]emp/
