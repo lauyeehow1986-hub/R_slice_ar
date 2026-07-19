@@ -5,6 +5,7 @@
 # Unity generated
 [Ll]ibrary/
 [Tt]emp/
+.utmp/
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
