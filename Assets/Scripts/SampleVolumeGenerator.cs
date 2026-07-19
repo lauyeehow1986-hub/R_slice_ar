@@ -16,7 +16,10 @@ namespace SliceAR
 
         private void Start()
         {
-            Generate();
+            var volume = Generate();
+            var slicer = GetComponent<MotionSlicer>();
+            if (slicer != null)
+                slicer.Attach(volume);
         }
 
         public VolumeRenderedObject Generate()
