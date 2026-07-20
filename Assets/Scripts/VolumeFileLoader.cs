@@ -36,6 +36,10 @@ namespace SliceAR
         [Tooltip("Bytes of header to skip before the voxel data (0 for a headerless RAW).")]
         public int skipBytes = 0;
 
+        [Tooltip("Physical voxel size in millimetres per data axis (x,y,z). Used to render the volume " +
+                 "at its true proportions instead of a cube. MRHead is anisotropic: 1,1,1.3.")]
+        public Vector3 voxelSizeMm = new Vector3(1f, 1f, 1.3f);
+
         [Header("Behaviour")]
         public bool loadOnStart = true;
 
@@ -135,12 +139,30 @@ namespace SliceAR
             }
 
             dataset.RecalculateBounds();
+            ApplyVoxelSize(dataset);
             spawned = VolumeObjectFactory.CreateObject(dataset);
             spawned.transform.SetParent(transform, false);
 
             ApplyTransferFunction(spawned);
 
             onDone(spawned);
+        }
+
+        /// <summary>
+        /// Set the dataset's per-axis scale from the physical voxel size so the volume renders at its
+        /// true proportions. Without this a 256×256×130 volume is drawn as a cube, stretching the short
+        /// axis. Normalised so the largest physical extent = 1.
+        /// </summary>
+        private void ApplyVoxelSize(VolumeDataset dataset)
+        {
+            Vector3 extents = new Vector3(
+                dataset.dimX * Mathf.Max(voxelSizeMm.x, 1e-4f),
+                dataset.dimY * Mathf.Max(voxelSizeMm.y, 1e-4f),
+                dataset.dimZ * Mathf.Max(voxelSizeMm.z, 1e-4f));
+            float maxExt = Mathf.Max(extents.x, Mathf.Max(extents.y, extents.z));
+            if (maxExt <= 0f)
+                return;
+            dataset.scale = extents / maxExt;
         }
 
         /// <summary>
