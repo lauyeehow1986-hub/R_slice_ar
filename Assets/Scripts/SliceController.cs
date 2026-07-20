@@ -18,14 +18,16 @@ namespace SliceAR
         [Tooltip("Orientation offset for the Clip cross-section plane (tune on-device).")]
         public Vector3 clipOffsetEuler = new Vector3(90f, 0f, 0f);
 
-        [Tooltip("Orientation offset for the 2D slice plane (tune on-device).")]
-        public Vector3 sliceOffsetEuler = Vector3.zero;
+        [Tooltip("Orientation offset for the 2D slice plane so its face points at the viewer " +
+                 "(90° stands the plane up to face the camera; tune on-device).")]
+        public Vector3 sliceOffsetEuler = new Vector3(90f, 0f, 0f);
 
         [Tooltip("Local scale of the 2D slice quad (bigger = covers more of the volume).")]
         public float slicePlaneScale = 1.0f;
 
-        [Tooltip("Hide the 3D volume while in Slice mode for a clean 2D read.")]
-        public bool hideVolumeInSliceMode = true;
+        [Tooltip("Hide the 3D volume while in Slice mode. Off keeps the volume visible for context " +
+                 "so the 2D slice reads against it instead of the bare camera feed.")]
+        public bool hideVolumeInSliceMode = false;
 
         public SliceMode Mode { get; private set; } = SliceMode.Clip;
 
