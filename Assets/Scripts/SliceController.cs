@@ -29,6 +29,11 @@ namespace SliceAR
                  "so the 2D slice reads against it instead of the bare camera feed.")]
         public bool hideVolumeInSliceMode = false;
 
+        [Tooltip("In Slice mode, keep the slice plane anchored at the volume centre and control only " +
+                 "its angle with the device, so you can stand back and watch the slice. Off makes the " +
+                 "slice plane ride the device position (like the clip plane).")]
+        public bool anchorSliceAtVolumeCentre = true;
+
         public SliceMode Mode { get; private set; } = SliceMode.Clip;
 
         private VolumeRenderedObject volume;
@@ -60,7 +65,14 @@ namespace SliceAR
             else
             {
                 if (slicingPlane != null)
-                    slicingPlane.transform.SetPositionAndRotation(position, rotation * Quaternion.Euler(sliceOffsetEuler));
+                {
+                    // Anchor the slice at the volume centre so it is always inside the volume and
+                    // readable from a distance; the device only steers the slice angle.
+                    Vector3 slicePos = (anchorSliceAtVolumeCentre && volume != null)
+                        ? volume.transform.position
+                        : position;
+                    slicingPlane.transform.SetPositionAndRotation(slicePos, rotation * Quaternion.Euler(sliceOffsetEuler));
+                }
             }
         }
 
