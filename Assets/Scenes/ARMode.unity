@@ -600,6 +600,7 @@ GameObject:
   - component: {fileID: 1190977745}
   - component: {fileID: 1190977748}
   - component: {fileID: 1190977749}
+  - component: {fileID: 1190977750}
   m_Layer: 0
   m_Name: VolumeSpawner
   m_TagString: Untagged
@@ -686,6 +687,18 @@ MonoBehaviour:
   loadOnStart: 0
   transferFunctionPreset: 2
   fallbackToSynthetic: 1
+--- !u!114 &1190977750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1190977744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c6f64780fd08e3498aec39350c13e67, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SliceAR.ImportUI
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

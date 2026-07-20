@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityVolumeRendering;
@@ -92,10 +93,57 @@ namespace SliceAR
         }
 
         /// <summary>
-        /// Import the RAW dataset and create its rendered object, invoking <paramref name="onDone"/>
-        /// with the result (or null on failure). Exposed so other modes (e.g. AR) can reuse it.
+        /// Produce a rendered volume and invoke <paramref name="onDone"/> with it (or null on failure).
+        /// If a runtime <see cref="VolumeImportRequest"/> is pending it is consumed here (a user import);
+        /// otherwise the bundled StreamingAssets sample is loaded. Exposed so other modes (e.g. AR) reuse it.
         /// </summary>
         public IEnumerator Load(Action<VolumeRenderedObject> onDone)
+        {
+            VolumeDataset dataset = null;
+
+            if (VolumeImportRequest.HasPending)
+            {
+                // A user-initiated import (survives the scene reload); take its parameters, then clear.
+                var kind = VolumeImportRequest.kind;
+                voxelSizeMm = VolumeImportRequest.voxelSizeMm;
+                transferFunctionPreset = VolumeImportRequest.tfPreset;
+
+                if (kind == VolumeImportRequest.Kind.ImageSequence)
+                {
+                    dataset = ImportImageSequence(VolumeImportRequest.imagePaths);
+                }
+                else if (kind == VolumeImportRequest.Kind.Raw)
+                {
+                    dataset = ImportRaw(VolumeImportRequest.rawPath,
+                        VolumeImportRequest.dimX, VolumeImportRequest.dimY, VolumeImportRequest.dimZ,
+                        VolumeImportRequest.contentFormat, VolumeImportRequest.endianness,
+                        VolumeImportRequest.skipBytes);
+                }
+                VolumeImportRequest.Clear();
+            }
+            else
+            {
+                yield return LoadBundledRaw(d => dataset = d);
+            }
+
+            if (dataset == null)
+            {
+                onDone(null);
+                yield break;
+            }
+
+            dataset.RecalculateBounds();
+            ApplyVoxelSize(dataset);
+            spawned = VolumeObjectFactory.CreateObject(dataset);
+            spawned.transform.SetParent(transform, false);
+
+            ApplyTransferFunction(spawned);
+
+            onDone(spawned);
+        }
+
+        /// <summary>Load the bundled headerless RAW from StreamingAssets (copying out of the APK on Android).</summary>
+        private IEnumerator LoadBundledRaw(Action<VolumeDataset> onDone)
         {
             string srcPath = Path.Combine(Application.streamingAssetsPath, fileName);
             string localPath = srcPath;
@@ -129,23 +177,39 @@ namespace SliceAR
                 yield break;
             }
 
-            var importer = new RawDatasetImporter(localPath, dimX, dimY, dimZ,
-                                                  contentFormat, endianness, skipBytes);
-            VolumeDataset dataset = importer.Import();
-            if (dataset == null)
+            onDone(ImportRaw(localPath, dimX, dimY, dimZ, contentFormat, endianness, skipBytes));
+        }
+
+        private VolumeDataset ImportRaw(string path, int dx, int dy, int dz,
+                                        DataContentFormat format, Endianness endian, int skip)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
-                onDone(null);
-                yield break;
+                Debug.LogError("VolumeFileLoader: RAW file not found: " + path);
+                return null;
             }
+            return new RawDatasetImporter(path, dx, dy, dz, format, endian, skip).Import();
+        }
 
-            dataset.RecalculateBounds();
-            ApplyVoxelSize(dataset);
-            spawned = VolumeObjectFactory.CreateObject(dataset);
-            spawned.transform.SetParent(transform, false);
+        private VolumeDataset ImportImageSequence(string[] paths)
+        {
+            if (paths == null || paths.Length == 0)
+            {
+                Debug.LogError("VolumeFileLoader: no images to import.");
+                return null;
+            }
+            // Slice order matters: sort by file name (e.g. slice001, slice002, ...).
+            var ordered = paths.OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase);
 
-            ApplyTransferFunction(spawned);
-
-            onDone(spawned);
+            var importer = new ImageSequenceImporter();
+            var settings = new ImageSequenceImportSettings();
+            var series = importer.LoadSeries(ordered, settings).FirstOrDefault();
+            if (series == null)
+            {
+                Debug.LogError("VolumeFileLoader: no supported image series found.");
+                return null;
+            }
+            return importer.ImportSeries(series, settings);
         }
 
         /// <summary>
