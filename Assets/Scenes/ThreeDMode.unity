@@ -321,14 +321,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 074de53958487ff42bf3a6d4564757c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SliceAR.VolumeFileLoader
-  fileName: CThead_256x256x113_int16_be.raw
+  fileName: MRHead_256x256x130_int16_le.raw
   dimX: 256
   dimY: 256
-  dimZ: 113
-  contentFormat: 3
-  endianness: 1
+  dimZ: 130
+  contentFormat: 2
+  endianness: 0
   skipBytes: 0
   loadOnStart: 1
+  transferFunctionPreset: 2
   fallbackToSynthetic: 1
 --- !u!1 &2016325677
 GameObject:
