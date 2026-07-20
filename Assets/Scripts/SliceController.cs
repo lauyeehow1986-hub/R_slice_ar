@@ -25,9 +25,9 @@ namespace SliceAR
         [Tooltip("Local scale of the 2D slice quad (bigger = covers more of the volume).")]
         public float slicePlaneScale = 1.0f;
 
-        [Tooltip("Hide the 3D volume while in Slice mode. Off keeps the volume visible for context " +
-                 "so the 2D slice reads against it instead of the bare camera feed.")]
-        public bool hideVolumeInSliceMode = false;
+        [Tooltip("Hide the 3D volume while in Slice mode for a clean flat 2D-slice (CT-viewer) read. " +
+                 "Off keeps the volume visible for context.")]
+        public bool hideVolumeInSliceMode = true;
 
         [Tooltip("In Slice mode, keep the slice plane anchored at the volume centre and control only " +
                  "its angle with the device, so you can stand back and watch the slice. Off makes the " +
