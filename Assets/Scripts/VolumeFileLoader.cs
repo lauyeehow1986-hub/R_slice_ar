@@ -110,7 +110,9 @@ namespace SliceAR
 
                 if (kind == VolumeImportRequest.Kind.ImageSequence)
                 {
-                    dataset = ImportImageSequence(VolumeImportRequest.imagePaths);
+                    dataset = !string.IsNullOrEmpty(VolumeImportRequest.imageZipPath)
+                        ? ImportImageSequence(ExtractZip(VolumeImportRequest.imageZipPath))
+                        : ImportImageSequence(VolumeImportRequest.imagePaths);
                 }
                 else if (kind == VolumeImportRequest.Kind.Raw)
                 {
@@ -189,6 +191,43 @@ namespace SliceAR
                 return null;
             }
             return new RawDatasetImporter(path, dx, dy, dz, format, endian, skip).Import();
+        }
+
+        /// <summary>Extract a .zip of slice images to a temp folder and return the image paths.</summary>
+        private string[] ExtractZip(string zipPath)
+        {
+            if (string.IsNullOrEmpty(zipPath) || !File.Exists(zipPath))
+            {
+                Debug.LogError("VolumeFileLoader: zip not found: " + zipPath);
+                return null;
+            }
+            string dir = Path.Combine(Application.persistentDataPath, "import_stack");
+            try
+            {
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, true);
+                Directory.CreateDirectory(dir);
+
+                using (var fs = File.OpenRead(zipPath))
+                using (var zip = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Read))
+                {
+                    foreach (var entry in zip.Entries)
+                    {
+                        if (string.IsNullOrEmpty(entry.Name))   // directory entry
+                            continue;
+                        string outPath = Path.Combine(dir, entry.Name);
+                        using (var es = entry.Open())
+                        using (var os = File.Create(outPath))
+                            es.CopyTo(os);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("VolumeFileLoader: failed to extract zip: " + e.Message);
+                return null;
+            }
+            return Directory.GetFiles(dir);
         }
 
         private VolumeDataset ImportImageSequence(string[] paths)

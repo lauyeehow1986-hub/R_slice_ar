@@ -15,7 +15,9 @@ namespace SliceAR
 
         public static Kind kind = Kind.None;
 
-        // ImageSequence: ordered local file paths (one image per slice).
+        // ImageSequence: either a .zip of slice images (preferred — one pick), or explicit
+        // ordered local file paths. If both are set, the zip wins.
+        public static string imageZipPath;
         public static string[] imagePaths;
 
         // Raw: a single local file path plus its layout.
@@ -34,6 +36,7 @@ namespace SliceAR
         public static void Clear()
         {
             kind = Kind.None;
+            imageZipPath = null;
             imagePaths = null;
             rawPath = null;
         }

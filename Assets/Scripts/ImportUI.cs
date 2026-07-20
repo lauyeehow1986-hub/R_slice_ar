@@ -96,9 +96,9 @@ namespace SliceAR
                 new Vector2(300f, 80f), CycleTf);
             y -= 120f;
 
-            CreateLabel(panel.transform, "Image sequence (PNG / JPG)", 30, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, "Image sequence — .zip of PNG/JPG slices", 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 80f;
-            CreateButton(panel.transform, "Pick image stack…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+            CreateButton(panel.transform, "Pick image stack (.zip)…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(700f, 100f), PickImageSequence);
             y -= 120f;
 
@@ -134,16 +134,16 @@ namespace SliceAR
             if (NativeFilePicker.IsFilePickerBusy())
                 return;
             SetStatus("Opening picker…");
-            NativeFilePicker.PickMultipleFiles(paths =>
+            NativeFilePicker.PickFile(path =>
             {
-                if (paths == null || paths.Length == 0)
+                if (string.IsNullOrEmpty(path))
                 {
                     SetStatus("Cancelled.");
                     return;
                 }
                 VolumeImportRequest.Clear();
                 VolumeImportRequest.kind = VolumeImportRequest.Kind.ImageSequence;
-                VolumeImportRequest.imagePaths = paths;
+                VolumeImportRequest.imageZipPath = path;
                 VolumeImportRequest.voxelSizeMm = ReadVoxel();
                 VolumeImportRequest.tfPreset = tfPreset;
                 ReloadScene();
