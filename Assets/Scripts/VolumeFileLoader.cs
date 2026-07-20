@@ -39,6 +39,10 @@ namespace SliceAR
         [Header("Behaviour")]
         public bool loadOnStart = true;
 
+        [Tooltip("Apply a CT-style transfer function tuned for medical density data (air→black, " +
+                 "soft tissue→grey, bone→white) instead of the plugin default that blows out to white.")]
+        public bool applyCTTransferFunction = true;
+
         [Tooltip("If the dataset is missing/unreadable, generate the synthetic sphere instead " +
                  "(requires a SampleVolumeGenerator on the same object).")]
         public bool fallbackToSynthetic = true;
@@ -129,7 +133,45 @@ namespace SliceAR
             dataset.RecalculateBounds();
             spawned = VolumeObjectFactory.CreateObject(dataset);
             spawned.transform.SetParent(transform, false);
+
+            if (applyCTTransferFunction)
+                ApplyCTTransferFunction(spawned);
+
             onDone(spawned);
+        }
+
+        /// <summary>
+        /// Replace the plugin's default transfer function with a CT-style one. Control points are in
+        /// normalised density [0..1]; values were placed from this dataset's histogram (≈71% air near
+        /// 0, a soft-tissue spike around 0.32, and a thin bone tail above ~0.75). Colour drives the
+        /// flat slice view (its shader forces alpha=1 and uses only RGB); alpha keeps soft tissue
+        /// translucent in the 3D direct-volume render so bone is visible through it.
+        /// </summary>
+        private void ApplyCTTransferFunction(VolumeRenderedObject volume)
+        {
+            var tf = ScriptableObject.CreateInstance<UnityVolumeRendering.TransferFunction>();
+
+            tf.colourControlPoints.Clear();
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.00f, new Color(0f, 0f, 0f)));
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.11f, new Color(0f, 0f, 0f)));       // air → black
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.20f, new Color(0.18f, 0.16f, 0.15f)));// skin/edge
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.32f, new Color(0.42f, 0.38f, 0.34f)));// soft tissue → grey
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.50f, new Color(0.62f, 0.57f, 0.50f)));
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.72f, new Color(0.88f, 0.84f, 0.76f)));// cancellous bone
+            tf.colourControlPoints.Add(new TFColourControlPoint(0.85f, new Color(1f, 0.98f, 0.93f)));  // cortical bone
+            tf.colourControlPoints.Add(new TFColourControlPoint(1.00f, new Color(1f, 1f, 1f)));
+
+            tf.alphaControlPoints.Clear();
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.00f, 0.00f));
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.11f, 0.00f));   // air transparent
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.22f, 0.02f));
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.32f, 0.06f));   // soft tissue faint → see-through
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.50f, 0.15f));
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.70f, 0.55f));   // bone becomes solid
+            tf.alphaControlPoints.Add(new TFAlphaControlPoint(1.00f, 0.95f));
+
+            tf.GenerateTexture();
+            volume.SetTransferFunction(tf);
         }
     }
 }
