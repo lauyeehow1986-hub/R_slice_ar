@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 
 namespace SliceAR
 {
@@ -33,7 +34,7 @@ namespace SliceAR
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();
-                es.AddComponent<StandaloneInputModule>();
+                es.AddComponent<InputSystemUIInputModule>();
             }
 
             var btnGO = new GameObject("ModeButton");

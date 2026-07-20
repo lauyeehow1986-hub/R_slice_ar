@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityVolumeRendering;
 
 namespace SliceAR
@@ -30,9 +31,9 @@ namespace SliceAR
             controller.Setup(volume);
             pivot = volume.transform;
 
-            if (SystemInfo.supportsGyroscope)
+            if (AttitudeSensor.current != null)
             {
-                Input.gyro.enabled = true;
+                InputSystem.EnableDevice(AttitudeSensor.current);
                 gyroActive = true;
             }
         }
@@ -43,9 +44,9 @@ namespace SliceAR
                 return;
 
             Quaternion rotation;
-            if (gyroActive)
+            if (gyroActive && AttitudeSensor.current != null)
             {
-                rotation = GyroToUnity(Input.gyro.attitude);
+                rotation = GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
             }
             else
             {
