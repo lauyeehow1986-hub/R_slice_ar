@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.XR.ARFoundation;
 using UnityVolumeRendering;
 
 namespace SliceAR
@@ -47,6 +48,22 @@ namespace SliceAR
                 Debug.LogError("ARModeController: no volume could be loaded.");
                 yield break;
             }
+
+            // Wait until AR tracking is established so the camera pose is valid before anchoring.
+            // A fast-loading volume (e.g. a small imported RAW) otherwise anchors relative to the
+            // origin and appears to jump away the instant tracking starts and the camera pose updates.
+            // Hide the volume during the wait to avoid a flash at the origin.
+            volume.gameObject.SetActive(false);
+            float waited = 0f;
+            while (ARSession.state != ARSessionState.SessionTracking && waited < 6f)
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
+            // A couple of extra frames so the first tracked camera pose has settled.
+            yield return null;
+            yield return null;
+            volume.gameObject.SetActive(true);
 
             Transform cam = Camera.main != null ? Camera.main.transform : null;
             Vector3 anchor = cam != null
