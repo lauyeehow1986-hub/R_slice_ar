@@ -229,6 +229,7 @@ GameObject:
   - component: {fileID: 1156210139}
   - component: {fileID: 1156210141}
   - component: {fileID: 1156210140}
+  - component: {fileID: 1156210142}
   m_Layer: 0
   m_Name: VolumeSpawner
   m_TagString: Untagged
@@ -250,7 +251,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SliceAR.SampleVolumeGenerator
   resolution: 64
   rotationEuler: {x: 15, y: 25, z: 0}
-  generateOnStart: 1
+  generateOnStart: 0
 --- !u!4 &1156210138
 Transform:
   m_ObjectHideFlags: 0
@@ -307,6 +308,28 @@ MonoBehaviour:
   sliceOffsetEuler: {x: 0, y: 0, z: 0}
   slicePlaneScale: 1
   hideVolumeInSliceMode: 1
+  anchorSliceAtVolumeCentre: 1
+--- !u!114 &1156210142
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1156210136}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 074de53958487ff42bf3a6d4564757c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SliceAR.VolumeFileLoader
+  fileName: CThead_256x256x113_int16_be.raw
+  dimX: 256
+  dimY: 256
+  dimZ: 113
+  contentFormat: 3
+  endianness: 1
+  skipBytes: 0
+  loadOnStart: 1
+  fallbackToSynthetic: 1
 --- !u!1 &2016325677
 GameObject:
   m_ObjectHideFlags: 0
