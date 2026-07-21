@@ -22,6 +22,11 @@ namespace SliceAR
         private bool gyroActive;
         private Quaternion sweepRotation = Quaternion.identity;
 
+        // Neutral-pose offset applied to the gyro attitude. Recentring sets this so the current
+        // device pose maps to "straight on", which also cancels the slow yaw drift that the phone's
+        // rotation-vector sensor accumulates over time.
+        private Quaternion recenterOffset = Quaternion.identity;
+
         /// <summary>Set up slicing for <paramref name="volume"/>, driven by device motion.</summary>
         public void Attach(VolumeRenderedObject volume)
         {
@@ -45,6 +50,16 @@ namespace SliceAR
             gyroActive = true;
         }
 
+        /// <summary>Make the current device pose the neutral "straight-on" orientation. Also clears
+        /// accumulated sensor yaw drift. In the editor (no gyro) this resets the auto-sweep.</summary>
+        public void Recenter()
+        {
+            if (gyroActive && AttitudeSensor.current != null)
+                recenterOffset = Quaternion.Inverse(GyroToUnity(AttitudeSensor.current.attitude.ReadValue()));
+            else
+                sweepRotation = Quaternion.identity;
+        }
+
         private void Update()
         {
             if (controller == null || pivot == null)
@@ -56,7 +71,7 @@ namespace SliceAR
             Quaternion rotation;
             if (gyroActive && AttitudeSensor.current != null)
             {
-                rotation = GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
+                rotation = recenterOffset * GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
             }
             else if (Application.isEditor)
             {

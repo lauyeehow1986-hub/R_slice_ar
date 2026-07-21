@@ -126,7 +126,18 @@ namespace SliceAR
                 else if (kind == VolumeImportRequest.Kind.Dicom)
                 {
                     dataset = ImportDicom(ExtractZip(VolumeImportRequest.dicomZipPath, "import_dicom"));
-                    importerProvidedScale = dataset != null;
+                    if (dataset != null)
+                    {
+                        // The DICOM importer can encode patient L/R handedness as a NEGATIVE scale
+                        // axis. That mirror propagates to the volume transform and flips the child
+                        // slicing plane's basis, so the slice flings off to a corner as the device
+                        // rotates. Keep the (anisotropic) magnitudes, drop the mirror.
+                        dataset.scale = new Vector3(
+                            Mathf.Abs(dataset.scale.x),
+                            Mathf.Abs(dataset.scale.y),
+                            Mathf.Abs(dataset.scale.z));
+                        importerProvidedScale = true;
+                    }
                 }
                 VolumeImportRequest.Clear();
             }
