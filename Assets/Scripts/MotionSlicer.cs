@@ -31,11 +31,18 @@ namespace SliceAR
             controller.Setup(volume);
             pivot = volume.transform;
 
-            if (AttitudeSensor.current != null)
-            {
-                InputSystem.EnableDevice(AttitudeSensor.current);
-                gyroActive = true;
-            }
+            TryEnableGyro();
+        }
+
+        // The AttitudeSensor may not be enumerated on the frame we attach (notably right after an
+        // import scene-reload), so this is retried from Update until it comes online.
+        private void TryEnableGyro()
+        {
+            if (gyroActive || AttitudeSensor.current == null)
+                return;
+
+            InputSystem.EnableDevice(AttitudeSensor.current);
+            gyroActive = true;
         }
 
         private void Update()
@@ -43,15 +50,24 @@ namespace SliceAR
             if (controller == null || pivot == null)
                 return;
 
+            if (!gyroActive)
+                TryEnableGyro();
+
             Quaternion rotation;
             if (gyroActive && AttitudeSensor.current != null)
             {
                 rotation = GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
             }
-            else
+            else if (Application.isEditor)
             {
+                // Editor-only convenience: no gyroscope, so slowly auto-sweep to show slicing.
                 sweepRotation *= Quaternion.AngleAxis(editorSweepSpeed * Time.deltaTime, Vector3.up);
                 rotation = sweepRotation;
+            }
+            else
+            {
+                // On device with no gyro yet: hold still rather than spinning away.
+                return;
             }
 
             controller.ApplyPose(pivot.position, rotation);
