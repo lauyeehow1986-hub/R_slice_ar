@@ -40,6 +40,14 @@ namespace SliceAR
         private CrossSectionPlane crossSection;
         private SlicingPlane slicingPlane;
 
+        // 3D "turntable": the volume is parented under this pivot (placed at the volume centre) and
+        // rotated by the device, while the cut plane is held fixed and face-on to the camera. That
+        // keeps the slice centred and full-face on screen at every angle. AR does not use this (its
+        // plane tracks the physically-moving device via ApplyPose).
+        private Transform turntablePivot;
+        private Camera viewCamera;
+        private float zoom = 1f;
+
         public void Setup(VolumeRenderedObject vol)
         {
             volume = vol;
@@ -86,6 +94,69 @@ namespace SliceAR
             if (volume != null && volume.meshRenderer != null)
                 return volume.meshRenderer.bounds.center;
             return volume != null ? volume.transform.position : Vector3.zero;
+        }
+
+        /// <summary>
+        /// 3D-mode driver: rotate the volume by <paramref name="deviceRotation"/> about its centre and
+        /// hold the active cut plane fixed, face-on to the camera at that centre. The slice therefore
+        /// stays centred and full-face on screen regardless of the angle.
+        /// </summary>
+        public void ApplyTurntable(Quaternion deviceRotation)
+        {
+            if (volume == null)
+                return;
+            EnsureTurntable();
+
+            if (turntablePivot != null)
+                turntablePivot.rotation = deviceRotation;
+
+            Vector3 centre = turntablePivot != null ? turntablePivot.position : volume.transform.position;
+            Camera cam = viewCamera != null ? viewCamera : Camera.main;
+            Quaternion faceCam = cam != null ? cam.transform.rotation : Quaternion.identity;
+
+            if (Mode == SliceMode.Clip)
+            {
+                if (crossSection != null)
+                    crossSection.transform.SetPositionAndRotation(centre, faceCam * Quaternion.Euler(clipOffsetEuler));
+            }
+            else
+            {
+                if (slicingPlane != null)
+                    slicingPlane.transform.SetPositionAndRotation(centre, faceCam * Quaternion.Euler(sliceOffsetEuler));
+            }
+        }
+
+        /// <summary>Multiply the current zoom (uniform scale about the volume centre), clamped.</summary>
+        public void ZoomBy(float factor)
+        {
+            EnsureTurntable();
+            if (turntablePivot == null)
+                return;
+            zoom = Mathf.Clamp(zoom * factor, 0.3f, 4f);
+            turntablePivot.localScale = Vector3.one * zoom;
+        }
+
+        // Parent the volume under a pivot at its centre so it can be rotated/scaled in place. Done
+        // lazily on first turntable use, so AR (which never calls this) keeps the volume unparented.
+        private void EnsureTurntable()
+        {
+            if (turntablePivot != null || volume == null)
+                return;
+
+            Vector3 centre = volume.meshRenderer != null
+                ? volume.meshRenderer.bounds.center
+                : volume.transform.position;
+
+            var go = new GameObject("VolumeTurntablePivot");
+            turntablePivot = go.transform;
+            turntablePivot.SetParent(volume.transform.parent, false);
+            turntablePivot.position = centre;
+            turntablePivot.rotation = Quaternion.identity;
+            // Keep the volume's world pose; its centre now coincides with the pivot origin, so pivot
+            // rotation orbits the content about its own centre (no drift off-screen).
+            volume.transform.SetParent(turntablePivot, true);
+
+            viewCamera = Camera.main;
         }
 
         public void ToggleMode()
