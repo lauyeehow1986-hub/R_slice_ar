@@ -77,9 +77,9 @@ namespace SliceAR
             var prt = panel.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0.5f);
             prt.pivot = new Vector2(0.5f, 0.5f);
-            prt.sizeDelta = new Vector2(900f, 1150f);
+            prt.sizeDelta = new Vector2(900f, 1480f);
 
-            float y = 520f;
+            float y = 640f;
             CreateLabel(panel.transform, "Import dataset", 44, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 100f;
 
@@ -119,6 +119,12 @@ namespace SliceAR
             y -= 100f;
             CreateButton(panel.transform, "Pick RAW file…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(700f, 100f), PickRaw);
+            y -= 120f;
+
+            CreateLabel(panel.transform, "— or DICOM (.zip, uncompressed) —", 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            y -= 80f;
+            CreateButton(panel.transform, "Pick DICOM (.zip)…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+                new Vector2(700f, 100f), PickDicom);
             y -= 120f;
 
             statusText = CreateLabel(panel.transform, "", 26, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
@@ -172,6 +178,27 @@ namespace SliceAR
                 VolumeImportRequest.endianness = endian;
                 VolumeImportRequest.skipBytes = 0;
                 VolumeImportRequest.voxelSizeMm = ReadVoxel();
+                VolumeImportRequest.tfPreset = tfPreset;
+                ReloadScene();
+            });
+        }
+
+        private void PickDicom()
+        {
+            if (NativeFilePicker.IsFilePickerBusy())
+                return;
+            SetStatus("Opening picker…");
+            NativeFilePicker.PickFile(path =>
+            {
+                if (string.IsNullOrEmpty(path))
+                {
+                    SetStatus("Cancelled.");
+                    return;
+                }
+                VolumeImportRequest.Clear();
+                VolumeImportRequest.kind = VolumeImportRequest.Kind.Dicom;
+                VolumeImportRequest.dicomZipPath = path;
+                // DICOM provides its own voxel spacing; TF still applies (CT is typical).
                 VolumeImportRequest.tfPreset = tfPreset;
                 ReloadScene();
             });

@@ -11,7 +11,7 @@ namespace SliceAR
     /// </summary>
     public static class VolumeImportRequest
     {
-        public enum Kind { None, ImageSequence, Raw }
+        public enum Kind { None, ImageSequence, Raw, Dicom }
 
         public static Kind kind = Kind.None;
 
@@ -19,6 +19,9 @@ namespace SliceAR
         // ordered local file paths. If both are set, the zip wins.
         public static string imageZipPath;
         public static string[] imagePaths;
+
+        // Dicom: a .zip of a single (uncompressed) DICOM series.
+        public static string dicomZipPath;
 
         // Raw: a single local file path plus its layout.
         public static string rawPath;
@@ -39,6 +42,7 @@ namespace SliceAR
             imageZipPath = null;
             imagePaths = null;
             rawPath = null;
+            dicomZipPath = null;
         }
     }
 }

@@ -100,6 +100,8 @@ namespace SliceAR
         public IEnumerator Load(Action<VolumeRenderedObject> onDone)
         {
             VolumeDataset dataset = null;
+            // DICOM carries real pixel spacing and sets its own dataset.scale; don't override it.
+            bool importerProvidedScale = false;
 
             if (VolumeImportRequest.HasPending)
             {
@@ -111,7 +113,7 @@ namespace SliceAR
                 if (kind == VolumeImportRequest.Kind.ImageSequence)
                 {
                     dataset = !string.IsNullOrEmpty(VolumeImportRequest.imageZipPath)
-                        ? ImportImageSequence(ExtractZip(VolumeImportRequest.imageZipPath))
+                        ? ImportImageSequence(ExtractZip(VolumeImportRequest.imageZipPath, "import_stack"))
                         : ImportImageSequence(VolumeImportRequest.imagePaths);
                 }
                 else if (kind == VolumeImportRequest.Kind.Raw)
@@ -120,6 +122,11 @@ namespace SliceAR
                         VolumeImportRequest.dimX, VolumeImportRequest.dimY, VolumeImportRequest.dimZ,
                         VolumeImportRequest.contentFormat, VolumeImportRequest.endianness,
                         VolumeImportRequest.skipBytes);
+                }
+                else if (kind == VolumeImportRequest.Kind.Dicom)
+                {
+                    dataset = ImportDicom(ExtractZip(VolumeImportRequest.dicomZipPath, "import_dicom"));
+                    importerProvidedScale = dataset != null;
                 }
                 VolumeImportRequest.Clear();
             }
@@ -135,7 +142,8 @@ namespace SliceAR
             }
 
             dataset.RecalculateBounds();
-            ApplyVoxelSize(dataset);
+            if (!importerProvidedScale)
+                ApplyVoxelSize(dataset);
             spawned = VolumeObjectFactory.CreateObject(dataset);
             spawned.transform.SetParent(transform, false);
 
@@ -193,15 +201,15 @@ namespace SliceAR
             return new RawDatasetImporter(path, dx, dy, dz, format, endian, skip).Import();
         }
 
-        /// <summary>Extract a .zip of slice images to a temp folder and return the image paths.</summary>
-        private string[] ExtractZip(string zipPath)
+        /// <summary>Extract a .zip to a fresh temp subfolder and return the extracted file paths.</summary>
+        private string[] ExtractZip(string zipPath, string subDir)
         {
             if (string.IsNullOrEmpty(zipPath) || !File.Exists(zipPath))
             {
                 Debug.LogError("VolumeFileLoader: zip not found: " + zipPath);
                 return null;
             }
-            string dir = Path.Combine(Application.persistentDataPath, "import_stack");
+            string dir = Path.Combine(Application.persistentDataPath, subDir);
             try
             {
                 if (Directory.Exists(dir))
@@ -246,6 +254,30 @@ namespace SliceAR
             if (series == null)
             {
                 Debug.LogError("VolumeFileLoader: no supported image series found.");
+                return null;
+            }
+            return importer.ImportSeries(series, settings);
+        }
+
+        /// <summary>
+        /// Import an (uncompressed) DICOM series from a set of extracted files using UnityVolumeRendering's
+        /// managed openDICOM reader (no native libraries — works under IL2CPP/ARM64). JPEG-compressed
+        /// DICOM is not supported by this reader. Voxel spacing comes from the DICOM metadata.
+        /// </summary>
+        private VolumeDataset ImportDicom(string[] paths)
+        {
+            if (paths == null || paths.Length == 0)
+            {
+                Debug.LogError("VolumeFileLoader: no DICOM files to import.");
+                return null;
+            }
+
+            var importer = new DICOMImporter();
+            var settings = new ImageSequenceImportSettings();
+            var series = importer.LoadSeries(paths, settings).FirstOrDefault();
+            if (series == null)
+            {
+                Debug.LogError("VolumeFileLoader: no DICOM series found in the archive.");
                 return null;
             }
             return importer.ImportSeries(series, settings);
