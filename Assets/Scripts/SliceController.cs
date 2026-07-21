@@ -40,13 +40,18 @@ namespace SliceAR
         private CrossSectionPlane crossSection;
         private SlicingPlane slicingPlane;
 
-        // 3D "turntable": the volume is parented under this pivot (placed at the volume centre) and
-        // rotated by the device, while the cut plane is held fixed and face-on to the camera. That
-        // keeps the slice centred and full-face on screen at every angle. AR does not use this (its
-        // plane tracks the physically-moving device via ApplyPose).
-        private Transform turntablePivot;
-        private Camera viewCamera;
-        private float zoom = 1f;
+        /// <summary>Canonical viewing planes for the 3D CT-viewer (defined against the volume's
+        /// anatomical axes; only truly anatomical for DICOM, geometric otherwise).</summary>
+        public enum ViewAxis { Axial, Coronal, Sagittal }
+
+        // 3D CT-viewer state: the volume stays FIXED (UVR slices from the plane's pose *relative to*
+        // the volume, so rotating the volume would just re-show the same slice — see git history).
+        // Instead the slice plane snaps to a canonical anatomical plane, the device scrubs its depth,
+        // and the camera is placed to look straight down that plane's normal so the slice reads
+        // face-on and centred. AR is unaffected (it still uses ApplyPose).
+        private float camDistance;
+        private const float MinCamDistance = 0.4f;
+        private const float MaxCamDistance = 6f;
 
         public void Setup(VolumeRenderedObject vol)
         {
@@ -97,66 +102,68 @@ namespace SliceAR
         }
 
         /// <summary>
-        /// 3D-mode driver: rotate the volume by <paramref name="deviceRotation"/> about its centre and
-        /// hold the active cut plane fixed, face-on to the camera at that centre. The slice therefore
-        /// stays centred and full-face on screen regardless of the angle.
+        /// 3D CT-viewer driver: snap the slice plane to the given canonical <paramref name="axis"/> at
+        /// normalised depth <paramref name="depth01"/> (0..1 across the volume), and place
+        /// <paramref name="cam"/> square-on to it so the slice reads face-on and centred. The volume
+        /// itself is never moved.
         /// </summary>
-        public void ApplyTurntable(Quaternion deviceRotation)
+        public void ShowCtSlice(ViewAxis axis, float depth01, Camera cam)
         {
-            if (volume == null)
+            if (volume == null || slicingPlane == null)
                 return;
-            EnsureTurntable();
 
-            if (turntablePivot != null)
-                turntablePivot.rotation = deviceRotation;
+            Transform frame = volume.meshRenderer != null ? volume.meshRenderer.transform : volume.transform;
+            // Patient axes in world space (importer maps +X→Left, +Y→Posterior, +Z→Superior).
+            // TransformVector (not TransformDirection) so the importer's handedness flip is included.
+            Vector3 left      = frame.TransformVector(Vector3.right).normalized;
+            Vector3 posterior = frame.TransformVector(Vector3.up).normalized;
+            Vector3 superior  = frame.TransformVector(Vector3.forward).normalized;
 
-            Vector3 centre = turntablePivot != null ? turntablePivot.position : volume.transform.position;
-            Camera cam = viewCamera != null ? viewCamera : Camera.main;
-            Quaternion faceCam = cam != null ? cam.transform.rotation : Quaternion.identity;
-
-            if (Mode == SliceMode.Clip)
+            Vector3 normal, up;
+            switch (axis)
             {
-                if (crossSection != null)
-                    crossSection.transform.SetPositionAndRotation(centre, faceCam * Quaternion.Euler(clipOffsetEuler));
+                case ViewAxis.Axial:   normal = superior;  up = -posterior; break; // top-down, anterior up
+                case ViewAxis.Coronal: normal = posterior; up = superior;   break; // front-on, superior up
+                default:               normal = left;      up = superior;   break; // side-on, superior up
             }
-            else
+
+            // Never render upside-down: if the chosen up points downward in the world, flip it (and the
+            // view normal with it, to keep a right-handed frame). Matters for datasets whose stored
+            // orientation differs from the assumed anatomical convention (e.g. headerless RAW).
+            if (Vector3.Dot(up, Vector3.up) < 0f)
+                up = -up;
+
+            Vector3 centre = VolumeCentre();
+            float half = 0.9f * HalfExtentAlong(normal);
+            Vector3 slicePos = centre + normal * Mathf.Lerp(-half, half, Mathf.Clamp01(depth01));
+
+            // Orient the slice quad so its face is perpendicular to the view axis.
+            slicingPlane.transform.SetPositionAndRotation(slicePos, Quaternion.LookRotation(normal, up) * Quaternion.Euler(sliceOffsetEuler));
+
+            if (cam != null)
             {
-                if (slicingPlane != null)
-                    slicingPlane.transform.SetPositionAndRotation(centre, faceCam * Quaternion.Euler(sliceOffsetEuler));
+                if (camDistance <= 0f)
+                    camDistance = Mathf.Clamp(volume.meshRenderer != null ? volume.meshRenderer.bounds.size.magnitude : 2.6f, MinCamDistance, MaxCamDistance);
+                cam.transform.position = centre - normal * camDistance;
+                cam.transform.rotation = Quaternion.LookRotation(normal, up);
             }
         }
 
-        /// <summary>Multiply the current zoom (uniform scale about the volume centre), clamped.</summary>
+        /// <summary>Dolly the CT-viewer camera in/out (zoom), clamped.</summary>
         public void ZoomBy(float factor)
         {
-            EnsureTurntable();
-            if (turntablePivot == null)
-                return;
-            zoom = Mathf.Clamp(zoom * factor, 0.3f, 4f);
-            turntablePivot.localScale = Vector3.one * zoom;
+            if (camDistance <= 0f)
+                camDistance = 2.6f;
+            camDistance = Mathf.Clamp(camDistance / Mathf.Max(factor, 1e-3f), MinCamDistance, MaxCamDistance);
         }
 
-        // Parent the volume under a pivot at its centre so it can be rotated/scaled in place. Done
-        // lazily on first turntable use, so AR (which never calls this) keeps the volume unparented.
-        private void EnsureTurntable()
+        // Half the volume's world extent along the given (unit) direction.
+        private float HalfExtentAlong(Vector3 dir)
         {
-            if (turntablePivot != null || volume == null)
-                return;
-
-            Vector3 centre = volume.meshRenderer != null
-                ? volume.meshRenderer.bounds.center
-                : volume.transform.position;
-
-            var go = new GameObject("VolumeTurntablePivot");
-            turntablePivot = go.transform;
-            turntablePivot.SetParent(volume.transform.parent, false);
-            turntablePivot.position = centre;
-            turntablePivot.rotation = Quaternion.identity;
-            // Keep the volume's world pose; its centre now coincides with the pivot origin, so pivot
-            // rotation orbits the content about its own centre (no drift off-screen).
-            volume.transform.SetParent(turntablePivot, true);
-
-            viewCamera = Camera.main;
+            if (volume == null || volume.meshRenderer == null)
+                return 0.5f;
+            Vector3 e = volume.meshRenderer.bounds.extents;
+            return Mathf.Abs(e.x * dir.x) + Mathf.Abs(e.y * dir.y) + Mathf.Abs(e.z * dir.z);
         }
 
         public void ToggleMode()

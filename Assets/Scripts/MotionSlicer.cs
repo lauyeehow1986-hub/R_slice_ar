@@ -5,40 +5,39 @@ using UnityVolumeRendering;
 namespace SliceAR
 {
     /// <summary>
-    /// 3D-mode pose driver. Pivots the active slicing representation (managed by
-    /// <see cref="SliceController"/>) at the volume centre and orients it from the device
-    /// gyroscope ("move the device to define the cut" — the core Slice-AR interaction). In the
-    /// editor, where there is no gyroscope, it slowly auto-sweeps so the slicing is visible
-    /// without hardware.
+    /// 3D-mode driver: a stable CT-viewer. The volume is fixed; the slice plane snaps to a canonical
+    /// anatomical plane (axial/coronal/sagittal) and the camera looks straight down it, so the slice is
+    /// always face-on and centred. Tilting the device scrubs the slice depth through the stack ("move
+    /// the device to explore" — the Slice-AR interaction, stabilised). In the editor (no gyroscope) the
+    /// depth auto-sweeps so slicing is visible without hardware.
     /// </summary>
     [RequireComponent(typeof(SliceController))]
     public class MotionSlicer : MonoBehaviour
     {
-        [Tooltip("Degrees/second for the editor auto-sweep fallback (used when no gyroscope).")]
-        public float editorSweepSpeed = 30f;
+        [Tooltip("How far a device tilt scrubs the slice depth (higher = more travel per degree).")]
+        public float tiltSensitivity = 0.8f;
+
+        public SliceController.ViewAxis Axis { get; private set; } = SliceController.ViewAxis.Axial;
 
         private SliceController controller;
-        private Transform pivot;
+        private bool attached;
         private bool gyroActive;
-        private Quaternion sweepRotation = Quaternion.identity;
 
-        // Neutral-pose offset applied to the gyro attitude. Recentring sets this so the current
-        // device pose maps to "straight on", which also cancels the slow yaw drift that the phone's
-        // rotation-vector sensor accumulates over time.
+        // Device pitch at the last Recenter; the scrub is measured relative to it so "neutral" is the
+        // middle of the stack and the slow rotation-vector drift can be zeroed on demand.
         private Quaternion recenterOffset = Quaternion.identity;
 
         // Last two-finger pinch distance (pixels), -1 when not pinching.
         private float lastPinchDist = -1f;
 
-        /// <summary>Set up slicing for <paramref name="volume"/>, driven by device motion.</summary>
+        /// <summary>Set up slicing for <paramref name="volume"/>, driven by device tilt.</summary>
         public void Attach(VolumeRenderedObject volume)
         {
             controller = GetComponent<SliceController>();
             if (controller == null)
                 controller = gameObject.AddComponent<SliceController>();
             controller.Setup(volume);
-            pivot = volume.transform;
-
+            attached = true;
             TryEnableGyro();
         }
 
@@ -48,57 +47,56 @@ namespace SliceAR
         {
             if (gyroActive || AttitudeSensor.current == null)
                 return;
-
             InputSystem.EnableDevice(AttitudeSensor.current);
             gyroActive = true;
         }
 
-        /// <summary>Make the current device pose the neutral "straight-on" orientation. Also clears
-        /// accumulated sensor yaw drift. In the editor (no gyro) this resets the auto-sweep.</summary>
+        /// <summary>Make the current device tilt the neutral (mid-stack) pose and clear sensor drift.</summary>
         public void Recenter()
         {
             if (gyroActive && AttitudeSensor.current != null)
                 recenterOffset = Quaternion.Inverse(GyroToUnity(AttitudeSensor.current.attitude.ReadValue()));
-            else
-                sweepRotation = Quaternion.identity;
+        }
+
+        /// <summary>Cycle Axial → Coronal → Sagittal → Axial.</summary>
+        public void CycleAxis()
+        {
+            Axis = (SliceController.ViewAxis)(((int)Axis + 1) % 3);
         }
 
         private void Update()
         {
-            if (controller == null || pivot == null)
+            if (!attached || controller == null)
                 return;
 
             if (!gyroActive)
                 TryEnableGyro();
 
-            Quaternion rotation;
+            float depth01;
             if (gyroActive && AttitudeSensor.current != null)
             {
-                rotation = recenterOffset * GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
+                // Tilt about the horizontal axis scrubs the depth: neutral (post-Recenter) = mid-stack.
+                Quaternion r = recenterOffset * GyroToUnity(AttitudeSensor.current.attitude.ReadValue());
+                float pitch = (r * Vector3.forward).y;            // -1 (tilt up) .. +1 (tilt down)
+                depth01 = Mathf.Clamp01(0.5f - pitch * tiltSensitivity);
             }
             else if (Application.isEditor)
             {
-                // Editor-only convenience: no gyroscope, so slowly auto-sweep to show slicing.
-                sweepRotation *= Quaternion.AngleAxis(editorSweepSpeed * Time.deltaTime, Vector3.up);
-                rotation = sweepRotation;
+                // Editor-only convenience: no gyroscope, so slowly sweep the depth.
+                depth01 = Mathf.PingPong(Time.time * 0.15f, 1f);
             }
             else
             {
-                // On device with no gyro yet: hold still rather than spinning away.
-                HandleZoom();
-                return;
+                depth01 = 0.5f;   // on device with no gyro yet: hold the mid slice
             }
 
-            controller.ApplyTurntable(rotation);
+            controller.ShowCtSlice(Axis, depth01, Camera.main);
             HandleZoom();
         }
 
-        // Two-finger pinch (device) or mouse wheel (editor) scales the volume about its centre.
+        // Two-finger pinch (device) or mouse wheel (editor) dollies the CT-viewer camera.
         private void HandleZoom()
         {
-            if (controller == null)
-                return;
-
             var ts = Touchscreen.current;
             if (ts != null)
             {

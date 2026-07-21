@@ -14,6 +14,7 @@ namespace SliceAR
         private SliceController controller;
         private MotionSlicer motionSlicer;
         private Text label;
+        private Text axisLabel;
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
         // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
@@ -30,6 +31,7 @@ namespace SliceAR
         private void Update()
         {
             UpdateOrientationMarkers();
+            UpdateAxisLabel();
         }
 
         private void BuildUI()
@@ -53,10 +55,14 @@ namespace SliceAR
             label = MakeButton(canvasGO.transform, "ModeButton",
                 new Vector2(0f, 140f), new Vector2(560f, 160f), OnClick);
 
-            // Recenter, bottom-centre just above the mode button — sets the current device pose as
-            // "straight on" and clears accumulated sensor drift.
+            // Recenter, bottom-centre just above the mode button — sets the current tilt as the
+            // mid-stack neutral and clears accumulated sensor drift.
             MakeButton(canvasGO.transform, "RecenterButton",
                 new Vector2(0f, 320f), new Vector2(560f, 140f), OnRecenter).text = "Recenter";
+
+            // Axis cycle (Axial/Coronal/Sagittal), above Recenter.
+            axisLabel = MakeButton(canvasGO.transform, "AxisButton",
+                new Vector2(0f, 480f), new Vector2(560f, 140f), OnCycleAxis);
 
             // Anatomical edge markers (hidden until a DICOM slice is on screen).
             markTop    = MakeEdgeLabel(canvasGO.transform, "MarkTop",    new Vector2(0.5f, 1f), new Vector2(0f, -110f));
@@ -192,10 +198,35 @@ namespace SliceAR
 
         private void OnRecenter()
         {
-            if (motionSlicer == null)
-                motionSlicer = Object.FindObjectOfType<MotionSlicer>();
+            EnsureMotionSlicer();
             if (motionSlicer != null)
                 motionSlicer.Recenter();
+        }
+
+        private void OnCycleAxis()
+        {
+            EnsureMotionSlicer();
+            if (motionSlicer != null)
+                motionSlicer.CycleAxis();
+            UpdateAxisLabel();
+        }
+
+        private void EnsureMotionSlicer()
+        {
+            if (motionSlicer == null)
+                motionSlicer = Object.FindObjectOfType<MotionSlicer>();
+        }
+
+        private void UpdateAxisLabel()
+        {
+            if (axisLabel == null)
+                return;
+            EnsureMotionSlicer();
+            // Only meaningful in 3D mode (MotionSlicer present) and Slice mode; hide otherwise.
+            bool show = motionSlicer != null && controller != null && controller.Mode == SliceController.SliceMode.Slice;
+            axisLabel.transform.parent.gameObject.SetActive(show);
+            if (show)
+                axisLabel.text = "Axis: " + motionSlicer.Axis;
         }
 
         private void OnClick()
