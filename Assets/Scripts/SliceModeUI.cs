@@ -15,10 +15,21 @@ namespace SliceAR
         private MotionSlicer motionSlicer;
         private Text label;
 
+        // Anatomical orientation markers (DICOM only): one label per screen edge showing which
+        // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
+        private Text markTop, markBottom, markLeft, markRight;
+        private Transform orientFrame;   // the volume's LPS-oriented container transform
+        private Camera viewCamera;
+
         private void Start()
         {
             BuildUI();
             UpdateLabel();
+        }
+
+        private void Update()
+        {
+            UpdateOrientationMarkers();
         }
 
         private void BuildUI()
@@ -46,6 +57,104 @@ namespace SliceAR
             // "straight on" and clears accumulated sensor drift.
             MakeButton(canvasGO.transform, "RecenterButton",
                 new Vector2(0f, 320f), new Vector2(560f, 140f), OnRecenter).text = "Recenter";
+
+            // Anatomical edge markers (hidden until a DICOM slice is on screen).
+            markTop    = MakeEdgeLabel(canvasGO.transform, "MarkTop",    new Vector2(0.5f, 1f), new Vector2(0f, -110f));
+            markBottom = MakeEdgeLabel(canvasGO.transform, "MarkBottom", new Vector2(0.5f, 0f), new Vector2(0f, 520f));
+            markLeft   = MakeEdgeLabel(canvasGO.transform, "MarkLeft",   new Vector2(0f, 0.5f), new Vector2(70f, 0f));
+            markRight  = MakeEdgeLabel(canvasGO.transform, "MarkRight",  new Vector2(1f, 0.5f), new Vector2(-70f, 0f));
+        }
+
+        /// <summary>Create a small fixed anatomical-marker label anchored to a screen edge.</summary>
+        private static Text MakeEdgeLabel(Transform parent, string name, Vector2 anchor, Vector2 pos)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var text = go.AddComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = 52;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = new Color(1f, 0.85f, 0.2f);   // amber, like a viewer's overlay
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(120f, 90f);
+            go.SetActive(false);
+            return text;
+        }
+
+        // Show which patient direction points to each screen edge for the on-screen slice. Only
+        // meaningful for DICOM (known LPS orientation) in Slice mode; hidden otherwise.
+        private void UpdateOrientationMarkers()
+        {
+            if (markTop == null)
+                return;
+
+            EnsureController();
+            bool show = VolumeSession.IsDicomOriented
+                        && controller != null
+                        && controller.Mode == SliceController.SliceMode.Slice;
+
+            if (show && orientFrame == null)
+            {
+                var vol = Object.FindObjectOfType<UnityVolumeRendering.VolumeRenderedObject>();
+                if (vol != null && vol.meshRenderer != null)
+                    orientFrame = vol.meshRenderer.transform;   // LPS-oriented container
+            }
+            if (viewCamera == null)
+                viewCamera = Camera.main;
+
+            if (!show || orientFrame == null || viewCamera == null)
+            {
+                SetMarkersActive(false);
+                return;
+            }
+
+            // Patient axes in the LPS-oriented container's local frame (importer assumes standard
+            // axial LPS: +X→Left, +Y→Posterior, +Z→Superior). TransformVector carries the importer's
+            // handedness flip and the live turntable rotation into world space.
+            Vector3 left      = orientFrame.TransformVector(Vector3.right).normalized;
+            Vector3 posterior = orientFrame.TransformVector(Vector3.up).normalized;
+            Vector3 superior  = orientFrame.TransformVector(Vector3.forward).normalized;
+
+            var dirs = new (Vector3 dir, string tag)[]
+            {
+                (left, "L"), (-left, "R"),
+                (posterior, "P"), (-posterior, "A"),
+                (superior, "S"), (-superior, "I"),
+            };
+
+            Vector3 camR = viewCamera.transform.right;
+            Vector3 camU = viewCamera.transform.up;
+            markRight.text  = BestTag(dirs, camR);
+            markLeft.text   = BestTag(dirs, -camR);
+            markTop.text    = BestTag(dirs, camU);
+            markBottom.text = BestTag(dirs, -camU);
+            SetMarkersActive(true);
+        }
+
+        // Pick the anatomical direction that projects most strongly along the given screen axis.
+        private static string BestTag((Vector3 dir, string tag)[] dirs, Vector3 axis)
+        {
+            float best = float.NegativeInfinity;
+            string tag = "";
+            foreach (var d in dirs)
+            {
+                float dot = Vector3.Dot(d.dir, axis);
+                if (dot > best) { best = dot; tag = d.tag; }
+            }
+            return tag;
+        }
+
+        private void SetMarkersActive(bool on)
+        {
+            markTop.gameObject.SetActive(on);
+            markBottom.gameObject.SetActive(on);
+            markLeft.gameObject.SetActive(on);
+            markRight.gameObject.SetActive(on);
         }
 
         /// <summary>Create a bottom-anchored button with a centred text label and return that label.</summary>

@@ -109,6 +109,7 @@ namespace SliceAR
                 var kind = VolumeImportRequest.kind;
                 voxelSizeMm = VolumeImportRequest.voxelSizeMm;
                 transferFunctionPreset = VolumeImportRequest.tfPreset;
+                VolumeSession.IsDicomOriented = kind == VolumeImportRequest.Kind.Dicom;
 
                 if (kind == VolumeImportRequest.Kind.ImageSequence)
                 {
@@ -136,6 +137,7 @@ namespace SliceAR
             }
             else
             {
+                VolumeSession.IsDicomOriented = false;   // bundled RAW has no orientation metadata
                 yield return LoadBundledRaw(d => dataset = d);
             }
 
