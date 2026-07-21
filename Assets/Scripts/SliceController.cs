@@ -67,13 +67,25 @@ namespace SliceAR
                 if (slicingPlane != null)
                 {
                     // Anchor the slice at the volume centre so it is always inside the volume and
-                    // readable from a distance; the device only steers the slice angle.
+                    // readable from a distance; the device only steers the slice angle. Use the
+                    // renderer's world-space bounds centre rather than transform.position: importers
+                    // (notably DICOM) bake an offset/scale into the mesh, so the GameObject origin is
+                    // not the visual centre — pivoting there flings the slice off to one corner.
                     Vector3 slicePos = (anchorSliceAtVolumeCentre && volume != null)
-                        ? volume.transform.position
+                        ? VolumeCentre()
                         : position;
                     slicingPlane.transform.SetPositionAndRotation(slicePos, rotation * Quaternion.Euler(sliceOffsetEuler));
                 }
             }
+        }
+
+        /// <summary>World-space visual centre of the volume (bounds centre, which accounts for the
+        /// importer-baked scale/offset), falling back to the transform origin if unavailable.</summary>
+        private Vector3 VolumeCentre()
+        {
+            if (volume != null && volume.meshRenderer != null)
+                return volume.meshRenderer.bounds.center;
+            return volume != null ? volume.transform.position : Vector3.zero;
         }
 
         public void ToggleMode()
