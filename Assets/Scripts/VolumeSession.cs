@@ -12,5 +12,10 @@ namespace SliceAR
         /// have no orientation metadata, so orientation markers would be meaningless for them.
         /// </summary>
         public static bool IsDicomOriented;
+
+        /// <summary>Diagnostic note about how the 3D <see cref="MotionSlicer"/> was obtained at
+        /// runtime (found on the object, added at runtime, or the error if it could not be created).
+        /// Surfaced by the on-screen build stamp to explain a missing slicer on device.</summary>
+        public static string SlicerNote = "";
     }
 }

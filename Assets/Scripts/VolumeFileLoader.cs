@@ -82,7 +82,29 @@ namespace SliceAR
 
             if (volume != null)
             {
+                // The scene's MotionSlicer component can fail to instantiate in an IL2CPP build even
+                // though it deserialises fine in the editor. If it is missing, recreate it at runtime
+                // (the type still lives in the player assembly) so 3D slicing works regardless. Record
+                // the outcome for the on-screen stamp.
                 var slicer = GetComponent<MotionSlicer>();
+                if (slicer == null)
+                {
+                    try
+                    {
+                        slicer = gameObject.AddComponent<MotionSlicer>();
+                        VolumeSession.SlicerNote = "added@runtime";
+                    }
+                    catch (Exception e)
+                    {
+                        VolumeSession.SlicerNote = "addERR:" + e.GetType().Name;
+                        Debug.LogError("VolumeFileLoader: could not add MotionSlicer: " + e);
+                    }
+                }
+                else
+                {
+                    VolumeSession.SlicerNote = "onObject";
+                }
+
                 if (slicer != null)
                     slicer.Attach(volume);
             }
