@@ -129,7 +129,8 @@ namespace SliceAR
                     // Keep the importer's scale/rotation exactly: its negative-X scale is the
                     // deliberate DICOM-LPS -> Unity handedness conversion that preserves radiological
                     // left/right. (Do NOT abs() it — that mirrors the anatomy. Centring in 3D mode is
-                    // handled by the turntable in SliceController, independent of the scale sign.)
+                    // handled by SliceController.ShowCtSlice via the volume bounds centre, independent
+                    // of the scale sign.)
                     dataset = ImportDicom(ExtractZip(VolumeImportRequest.dicomZipPath, "import_dicom"));
                     importerProvidedScale = dataset != null;
                 }

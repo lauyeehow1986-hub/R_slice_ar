@@ -280,7 +280,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b438f760b2467b041aad6127eb6b02cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SliceAR.MotionSlicer
-  editorSweepSpeed: 30
+  tiltSensitivity: 0.8
 --- !u!114 &1156210140
 MonoBehaviour:
   m_ObjectHideFlags: 0
