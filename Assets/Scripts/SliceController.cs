@@ -25,9 +25,12 @@ namespace SliceAR
         [Tooltip("Local scale of the 2D slice quad (bigger = covers more of the volume).")]
         public float slicePlaneScale = 1.0f;
 
-        [Tooltip("CT-viewer in-plane rotation (degrees about the view axis) so the slice reads upright " +
-                 "instead of lying on its side. Tune on-device if the anatomy is rotated.")]
-        public float inPlaneSpinDeg = 90f;
+        // CT-viewer in-plane rotation (degrees about the view axis) so the slice reads upright instead
+        // of lying on its side. Baked as a constant rather than a serialized field ON PURPOSE: a newly
+        // added serialized field deserialises to the C# type-default (0) in a scene-serialized
+        // component — NOT its initializer — so a field would silently be 0 in the build while looking
+        // correct in the editor. 90° is verified upright for all three canonical planes.
+        private const float InPlaneSpinDeg = 90f;
 
         [Tooltip("Hide the 3D volume while in Slice mode for a clean flat 2D-slice (CT-viewer) read. " +
                  "Off keeps the volume visible for context.")]
@@ -53,9 +56,14 @@ namespace SliceAR
         // Instead the slice plane snaps to a canonical anatomical plane, the device scrubs its depth,
         // and the camera is placed to look straight down that plane's normal so the slice reads
         // face-on and centred. AR is unaffected (it still uses ApplyPose).
+        // Auto-framed camera distance is recomputed every frame from the extents *in the current view
+        // plane* (so switching axes reframes correctly); user pinch/scroll adjusts zoomFactor, a
+        // multiplier applied on top so it survives the reframe. camDistance stays as the last framed
+        // value only for ZoomBy's fallback.
         private float camDistance;
-        private const float MinCamDistance = 0.4f;
-        private const float MaxCamDistance = 6f;
+        private float zoomFactor = 1f;
+        private const float MinCamDistance = 0.2f;
+        private const float MaxCamDistance = 8f;
 
         public void Setup(VolumeRenderedObject vol)
         {
@@ -128,62 +136,59 @@ namespace SliceAR
             Vector3 normal, up;
             switch (axis)
             {
-                case ViewAxis.Axial:   normal = superior;  up = -posterior; break; // top-down, anterior up
-                case ViewAxis.Coronal: normal = posterior; up = superior;   break; // front-on, superior up
-                default:               normal = left;      up = superior;   break; // side-on, superior up
+                case ViewAxis.Axial:   normal = superior;  up = -posterior; break; // top-down
+                case ViewAxis.Coronal: normal = posterior; up = superior;   break; // front-on
+                default:               normal = left;      up = superior;   break; // side-on
             }
 
             // Never render upside-down: if the chosen up points downward in the world, flip it (and the
-            // view normal with it, to keep a right-handed frame). Matters for datasets whose stored
-            // orientation differs from the assumed anatomical convention (e.g. headerless RAW).
+            // view normal with it, to keep a right-handed frame).
             if (Vector3.Dot(up, Vector3.up) < 0f)
                 up = -up;
+
+            Vector3 right = Vector3.Cross(up, normal).normalized;
 
             Vector3 centre = VolumeCentre();
             float half = 0.9f * HalfExtentAlong(normal);
             Vector3 slicePos = centre + normal * Mathf.Lerp(-half, half, Mathf.Clamp01(depth01));
 
-            // Orient the slice quad so its sampled cross-section faces the view axis. UVR's
-            // SliceRenderingShader draws the quad in its local XY plane but SAMPLES the volume on its
-            // local XZ plane (y=0), so a 90° rotation about X is REQUIRED to align what is sampled with
-            // what is drawn — without it the sampling plane is edge-on to the quad and every fragment
-            // reads outside the volume (all black). This must be baked in here rather than relying on
-            // the serialized sliceOffsetEuler field: a scene-serialized SliceController deserialises
-            // that field to (0,0,0) even though the C# default is (90,0,0), which is exactly why the
-            // 3D scene rendered black while the AR path (runtime-added SliceController → C# default)
-            // worked. sliceOffsetEuler remains available as an optional extra fine-tune.
-            // The baked quad/sampling 90° also rotates the sampled image 90° relative to the camera's
-            // up, so the slice appears lying on its side. Spin the plane about the VIEW NORMAL (the
-            // quad's facing direction) to bring the anatomy upright — this rotates the displayed slice
-            // relative to the fixed camera while keeping the quad square-on (so it stays visible, unlike
-            // spinning via sliceOffsetEuler which is about the wrong axis and blacks the slice out).
-            Quaternion viewSpin = Quaternion.AngleAxis(inPlaneSpinDeg, normal);
+            // Orient the slice quad. UVR's SliceRenderingShader samples the volume on the plane's local
+            // XZ plane while the quad is drawn in local XY, so a 90° rotation about X is required to put
+            // the sampled cross-section onto the visible quad (without it every fragment reads outside
+            // the volume → all black). The camera looks along `normal` (below), so the plane is built
+            // from LookRotation(normal, up); the extra per-axis `spin` about the view normal brings the
+            // anatomy upright (the 90°-about-X fold otherwise leaves the image rotated, differently per
+            // axis). Calibrated on-device via the *SpinDeg fields.
+            Quaternion viewSpin = Quaternion.AngleAxis(InPlaneSpinDeg, normal);
             slicingPlane.transform.SetPositionAndRotation(
                 slicePos,
-                viewSpin * Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f) * Quaternion.Euler(sliceOffsetEuler));
+                viewSpin * Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f));
 
             if (cam != null)
             {
-                if (camDistance <= 0f)
-                {
-                    // Frame the cross-section: place the camera so the volume's largest half-extent
-                    // fills most of the view (pushing the slice quad's empty out-of-volume border off
-                    // screen), instead of using the bounding-sphere diagonal (too far → tiny slice).
-                    Vector3 e = volume.meshRenderer != null ? volume.meshRenderer.bounds.extents : Vector3.one * 0.5f;
-                    float maxHalf = Mathf.Max(e.x, Mathf.Max(e.y, e.z));
-                    camDistance = Mathf.Clamp(maxHalf * 2.0f, MinCamDistance, MaxCamDistance);
-                }
+                // Frame to the on-screen extents (along `right` and `up`), not the volume's largest
+                // half-extent. The bundled MR is anisotropic, and the old single cached distance made
+                // some axes tiny or let the quad's out-of-volume border ghost into frame.
+                float halfH = HalfExtentAlong(right);
+                float halfV = HalfExtentAlong(up);
+                float aspect = cam.aspect > 0f ? cam.aspect : 1f;
+                float tanV = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+                float distV = halfV / tanV;
+                float distH = halfH / (tanV * aspect);
+                float framed = Mathf.Max(distV, distH) * 1.15f;   // margin so anatomy isn't clipped
+                camDistance = Mathf.Clamp(framed * zoomFactor, MinCamDistance, MaxCamDistance);
+
                 cam.transform.position = centre - normal * camDistance;
                 cam.transform.rotation = Quaternion.LookRotation(normal, up);
             }
         }
 
-        /// <summary>Dolly the CT-viewer camera in/out (zoom), clamped.</summary>
+        /// <summary>Zoom the CT-viewer camera in/out. Adjusts a multiplier on the auto-framed distance
+        /// (recomputed each frame in <see cref="ShowCtSlice"/>) so the zoom persists across depth/axis
+        /// changes; &gt;1 factor = zoom in (closer). Clamped to a sane range.</summary>
         public void ZoomBy(float factor)
         {
-            if (camDistance <= 0f)
-                camDistance = 2.6f;
-            camDistance = Mathf.Clamp(camDistance / Mathf.Max(factor, 1e-3f), MinCamDistance, MaxCamDistance);
+            zoomFactor = Mathf.Clamp(zoomFactor / Mathf.Max(factor, 1e-3f), 0.25f, 4f);
         }
 
         // Half the volume's world extent along the given (unit) direction.
