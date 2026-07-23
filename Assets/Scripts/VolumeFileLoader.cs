@@ -81,35 +81,42 @@ namespace SliceAR
             }
 
             Debug.Log("[SliceAR] LoadAndAttach: volume=" + (volume != null));
+
+            // Keep any load-phase note (createERR/tfERR) as a prefix so the stamp shows both what
+            // failed during load and what happened wiring up the slicer.
+            string note = VolumeSession.SlicerNote;
+            string sep = string.IsNullOrEmpty(note) ? "" : ";";
+
             if (volume != null)
             {
                 // The scene's MotionSlicer component can fail to instantiate in an IL2CPP build even
                 // though it deserialises fine in the editor. If it is missing, recreate it at runtime
                 // (the type still lives in the player assembly) so 3D slicing works regardless. Every
-                // step records a breadcrumb in VolumeSession.SlicerNote (shown by the on-screen stamp)
-                // and logs, so a missing slicer can be diagnosed from the device without a debugger.
+                // step appends a breadcrumb shown by the on-screen stamp and logged, so a missing
+                // slicer can be diagnosed from the device without a debugger.
                 MotionSlicer slicer = null;
                 try
                 {
                     slicer = GetComponent<MotionSlicer>();
-                    VolumeSession.SlicerNote = slicer != null ? "got" : "getnull";
+                    note += sep + (slicer != null ? "got" : "getnull");
                 }
                 catch (Exception e)
                 {
-                    VolumeSession.SlicerNote = "getERR:" + e.GetType().Name;
+                    note += sep + "getERR:" + e.GetType().Name;
                     Debug.LogError("[SliceAR] GetComponent<MotionSlicer> failed: " + e);
                 }
+                sep = ";";
 
                 if (slicer == null)
                 {
                     try
                     {
                         slicer = gameObject.AddComponent<MotionSlicer>();
-                        VolumeSession.SlicerNote = "added";
+                        note += ";added";
                     }
                     catch (Exception e)
                     {
-                        VolumeSession.SlicerNote = "addERR:" + e.GetType().Name;
+                        note += ";addERR:" + e.GetType().Name;
                         Debug.LogError("[SliceAR] AddComponent<MotionSlicer> failed: " + e);
                     }
                 }
@@ -119,21 +126,28 @@ namespace SliceAR
                     try
                     {
                         slicer.Attach(volume);
-                        VolumeSession.SlicerNote += ";attached";
+                        note += ";attached";
                     }
                     catch (Exception e)
                     {
-                        VolumeSession.SlicerNote += ";attachERR:" + e.GetType().Name;
+                        note += ";attachERR:" + e.GetType().Name;
                         Debug.LogError("[SliceAR] MotionSlicer.Attach failed: " + e);
                     }
                 }
-                Debug.Log("[SliceAR] SlicerNote=" + VolumeSession.SlicerNote);
             }
             else
             {
-                VolumeSession.SlicerNote = "no-volume";
+                note += sep + "no-volume";
                 Debug.LogError("[SliceAR] no volume could be loaded.");
             }
+
+            VolumeSession.SlicerNote = note;
+            Debug.Log("[SliceAR] SlicerNote=" + note);
+
+            // Also write the breadcrumb to a file: the device's log daemon throttles Unity lines
+            // under ARCore's log spam, so a pullable file is the reliable diagnostic channel.
+            try { File.WriteAllText(Path.Combine(Application.persistentDataPath, "slicer_diag.txt"), note); }
+            catch { /* diagnostics only */ }
         }
 
         /// <summary>
@@ -195,12 +209,39 @@ namespace SliceAR
             dataset.RecalculateBounds();
             if (!importerProvidedScale)
                 ApplyVoxelSize(dataset);
-            spawned = VolumeObjectFactory.CreateObject(dataset);
-            spawned.transform.SetParent(transform, false);
 
-            ApplyTransferFunction(spawned);
+            // Build the rendered object, then apply the transfer function. The TF is cosmetic (the
+            // volume renders fine without it), so a TF failure must NOT abort the load — otherwise
+            // onDone never fires, the slicer never attaches, and 3D mode silently shows only the raw
+            // volume. Each step is wrapped so onDone always runs with whatever we managed to build,
+            // and the failing step is recorded for the on-screen stamp.
+            VolumeRenderedObject obj = null;
+            try
+            {
+                obj = VolumeObjectFactory.CreateObject(dataset);
+                obj.transform.SetParent(transform, false);
+            }
+            catch (Exception e)
+            {
+                VolumeSession.SlicerNote = "createERR:" + e.GetType().Name;
+                Debug.LogError("[SliceAR] CreateObject failed: " + e);
+            }
 
-            onDone(spawned);
+            if (obj != null)
+            {
+                try
+                {
+                    ApplyTransferFunction(obj);
+                }
+                catch (Exception e)
+                {
+                    VolumeSession.SlicerNote = "tfERR:" + e.GetType().Name;
+                    Debug.LogError("[SliceAR] ApplyTransferFunction failed: " + e);
+                }
+            }
+
+            spawned = obj;
+            onDone(obj);
         }
 
         /// <summary>Load the bundled headerless RAW from StreamingAssets (copying out of the APK on Android).</summary>
