@@ -80,37 +80,59 @@ namespace SliceAR
                 }
             }
 
+            Debug.Log("[SliceAR] LoadAndAttach: volume=" + (volume != null));
             if (volume != null)
             {
                 // The scene's MotionSlicer component can fail to instantiate in an IL2CPP build even
                 // though it deserialises fine in the editor. If it is missing, recreate it at runtime
-                // (the type still lives in the player assembly) so 3D slicing works regardless. Record
-                // the outcome for the on-screen stamp.
-                var slicer = GetComponent<MotionSlicer>();
+                // (the type still lives in the player assembly) so 3D slicing works regardless. Every
+                // step records a breadcrumb in VolumeSession.SlicerNote (shown by the on-screen stamp)
+                // and logs, so a missing slicer can be diagnosed from the device without a debugger.
+                MotionSlicer slicer = null;
+                try
+                {
+                    slicer = GetComponent<MotionSlicer>();
+                    VolumeSession.SlicerNote = slicer != null ? "got" : "getnull";
+                }
+                catch (Exception e)
+                {
+                    VolumeSession.SlicerNote = "getERR:" + e.GetType().Name;
+                    Debug.LogError("[SliceAR] GetComponent<MotionSlicer> failed: " + e);
+                }
+
                 if (slicer == null)
                 {
                     try
                     {
                         slicer = gameObject.AddComponent<MotionSlicer>();
-                        VolumeSession.SlicerNote = "added@runtime";
+                        VolumeSession.SlicerNote = "added";
                     }
                     catch (Exception e)
                     {
                         VolumeSession.SlicerNote = "addERR:" + e.GetType().Name;
-                        Debug.LogError("VolumeFileLoader: could not add MotionSlicer: " + e);
+                        Debug.LogError("[SliceAR] AddComponent<MotionSlicer> failed: " + e);
                     }
-                }
-                else
-                {
-                    VolumeSession.SlicerNote = "onObject";
                 }
 
                 if (slicer != null)
-                    slicer.Attach(volume);
+                {
+                    try
+                    {
+                        slicer.Attach(volume);
+                        VolumeSession.SlicerNote += ";attached";
+                    }
+                    catch (Exception e)
+                    {
+                        VolumeSession.SlicerNote += ";attachERR:" + e.GetType().Name;
+                        Debug.LogError("[SliceAR] MotionSlicer.Attach failed: " + e);
+                    }
+                }
+                Debug.Log("[SliceAR] SlicerNote=" + VolumeSession.SlicerNote);
             }
             else
             {
-                Debug.LogError("VolumeFileLoader: no volume could be loaded.");
+                VolumeSession.SlicerNote = "no-volume";
+                Debug.LogError("[SliceAR] no volume could be loaded.");
             }
         }
 
