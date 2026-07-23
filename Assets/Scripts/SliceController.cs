@@ -164,6 +164,13 @@ namespace SliceAR
                 slicePos,
                 viewSpin * Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f));
 
+            // Also drive the Clip cross-section so 3D Clip mode is a proper anatomical cut-away along the
+            // current axis at the current depth. Without this it stays at its spawn default (volume
+            // origin), cutting the volume in half regardless of the device — the "half image" artifact.
+            if (crossSection != null)
+                crossSection.transform.SetPositionAndRotation(
+                    slicePos, Quaternion.LookRotation(normal, up) * Quaternion.Euler(clipOffsetEuler));
+
             if (cam != null)
             {
                 // Frame to the on-screen extents (along `right` and `up`), not the volume's largest
@@ -178,8 +185,20 @@ namespace SliceAR
                 float framed = Mathf.Max(distV, distH) * 1.15f;   // margin so anatomy isn't clipped
                 camDistance = Mathf.Clamp(framed * zoomFactor, MinCamDistance, MaxCamDistance);
 
-                cam.transform.position = centre - normal * camDistance;
-                cam.transform.rotation = Quaternion.LookRotation(normal, up);
+                // Slice mode: look straight down the view normal so the flat slice reads face-on.
+                // Clip mode: view the 3D cut-away from an OBLIQUE angle so the remaining half reads as a
+                // 3D object (a straight-down view makes the cut look like a flat "half image").
+                if (Mode == SliceMode.Clip)
+                {
+                    Vector3 viewDir = (normal + 0.55f * up + 0.4f * right).normalized;
+                    cam.transform.position = centre - viewDir * camDistance * 1.35f;
+                    cam.transform.rotation = Quaternion.LookRotation(viewDir, up);
+                }
+                else
+                {
+                    cam.transform.position = centre - normal * camDistance;
+                    cam.transform.rotation = Quaternion.LookRotation(normal, up);
+                }
             }
         }
 

@@ -37,6 +37,10 @@ namespace SliceAR
             if (controller == null)
                 controller = gameObject.AddComponent<SliceController>();
             controller.Setup(volume);
+            // 3D mode is a CT-viewer: start in Slice (the flat 2D panel) rather than Clip. The Clip
+            // cross-section defaults to the volume origin, so starting in Clip showed the volume cut in
+            // half ("half image") before the user did anything. (AR keeps the Clip default via ARSlicer.)
+            controller.SetMode(SliceController.SliceMode.Slice);
             attached = true;
             TryEnableGyro();
         }
