@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 
 namespace SliceAR
 {
@@ -14,13 +15,14 @@ namespace SliceAR
         // Build tag: bump this string every time we change 3D-mode code so the running APK can be
         // identified on-device at a glance. If this stamp doesn't change after a rebuild, the build
         // isn't picking up new code (not a code bug).
-        private const string BuildTag = "ct7";
+        private const string BuildTag = "ct8";
 
         private SliceController controller;
         private MotionSlicer motionSlicer;
         private Text label;
         private Text axisLabel;
-        private Text buildStamp;   // top-of-screen: build tag + whether the MotionSlicer was found
+        private Text buildStamp;        // top-of-screen: build tag + whether the MotionSlicer was found
+        private Text sceneSwitchLabel;  // top-right: switch between the AR and 3D scenes
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
         // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
@@ -98,6 +100,35 @@ namespace SliceAR
             var bsrt = buildStamp.GetComponent<RectTransform>();
             bsrt.sizeDelta = new Vector2(900f, 50f);
             buildStamp.gameObject.SetActive(true);
+
+            // Scene switch (top-right): the app has two scenes — ARMode (walk the device through a
+            // volume anchored in the room) and ThreeDMode (the stable CT-viewer). Nothing else lets
+            // the user move between them, so without this button whichever scene ships as build-index
+            // 0 is the only one reachable.
+            sceneSwitchLabel = MakeButton(canvasGO.transform, "SceneSwitchButton",
+                Vector2.zero, new Vector2(320f, 120f), OnSwitchScene);
+            var ssrt = sceneSwitchLabel.transform.parent.GetComponent<RectTransform>();
+            ssrt.anchorMin = ssrt.anchorMax = new Vector2(1f, 1f);
+            ssrt.pivot = new Vector2(1f, 1f);
+            ssrt.anchoredPosition = new Vector2(-40f, -150f);
+            var ssimg = sceneSwitchLabel.transform.parent.GetComponent<Image>();
+            if (ssimg != null) ssimg.color = new Color(0.10f, 0.30f, 0.45f, 0.85f);
+            UpdateSceneSwitchLabel();
+        }
+
+        private void OnSwitchScene()
+        {
+            string active = SceneManager.GetActiveScene().name;
+            string target = active == "ThreeDMode" ? "ARMode" : "ThreeDMode";
+            SceneManager.LoadScene(target);
+        }
+
+        private void UpdateSceneSwitchLabel()
+        {
+            if (sceneSwitchLabel == null)
+                return;
+            // Label names the destination, not the current scene.
+            sceneSwitchLabel.text = SceneManager.GetActiveScene().name == "ThreeDMode" ? "AR mode" : "3D view";
         }
 
         /// <summary>Create a small fixed anatomical-marker label anchored to a screen edge.</summary>
