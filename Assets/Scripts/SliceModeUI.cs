@@ -15,7 +15,7 @@ namespace SliceAR
         // Build tag: bump this string every time we change 3D-mode code so the running APK can be
         // identified on-device at a glance. If this stamp doesn't change after a rebuild, the build
         // isn't picking up new code (not a code bug).
-        private const string BuildTag = "ct8";
+        private const string BuildTag = "ct9";
 
         private SliceController controller;
         private MotionSlicer motionSlicer;

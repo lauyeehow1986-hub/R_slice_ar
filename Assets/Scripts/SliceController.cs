@@ -137,13 +137,30 @@ namespace SliceAR
             float half = 0.9f * HalfExtentAlong(normal);
             Vector3 slicePos = centre + normal * Mathf.Lerp(-half, half, Mathf.Clamp01(depth01));
 
-            // Orient the slice quad so its face is perpendicular to the view axis.
-            slicingPlane.transform.SetPositionAndRotation(slicePos, Quaternion.LookRotation(normal, up) * Quaternion.Euler(sliceOffsetEuler));
+            // Orient the slice quad so its sampled cross-section faces the view axis. UVR's
+            // SliceRenderingShader draws the quad in its local XY plane but SAMPLES the volume on its
+            // local XZ plane (y=0), so a 90° rotation about X is REQUIRED to align what is sampled with
+            // what is drawn — without it the sampling plane is edge-on to the quad and every fragment
+            // reads outside the volume (all black). This must be baked in here rather than relying on
+            // the serialized sliceOffsetEuler field: a scene-serialized SliceController deserialises
+            // that field to (0,0,0) even though the C# default is (90,0,0), which is exactly why the
+            // 3D scene rendered black while the AR path (runtime-added SliceController → C# default)
+            // worked. sliceOffsetEuler remains available as an optional extra fine-tune.
+            slicingPlane.transform.SetPositionAndRotation(
+                slicePos,
+                Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f) * Quaternion.Euler(sliceOffsetEuler));
 
             if (cam != null)
             {
                 if (camDistance <= 0f)
-                    camDistance = Mathf.Clamp(volume.meshRenderer != null ? volume.meshRenderer.bounds.size.magnitude : 2.6f, MinCamDistance, MaxCamDistance);
+                {
+                    // Frame the cross-section: place the camera so the volume's largest half-extent
+                    // fills most of the view (pushing the slice quad's empty out-of-volume border off
+                    // screen), instead of using the bounding-sphere diagonal (too far → tiny slice).
+                    Vector3 e = volume.meshRenderer != null ? volume.meshRenderer.bounds.extents : Vector3.one * 0.5f;
+                    float maxHalf = Mathf.Max(e.x, Mathf.Max(e.y, e.z));
+                    camDistance = Mathf.Clamp(maxHalf * 2.0f, MinCamDistance, MaxCamDistance);
+                }
                 cam.transform.position = centre - normal * camDistance;
                 cam.transform.rotation = Quaternion.LookRotation(normal, up);
             }
