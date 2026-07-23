@@ -71,10 +71,26 @@ namespace SliceAR
 
             VolumeObjectFactory.SpawnCrossSectionPlane(vol);
             crossSection = Object.FindObjectOfType<CrossSectionPlane>();
+            // Hide the cross-section plane's green wireframe gizmo — the cut itself is visible on the
+            // volume, so the outline just reads as a confusing floating box. The cut is applied via the
+            // CrossSectionManager (matrix), not the renderer, so hiding the renderer is safe.
+            if (crossSection != null)
+                foreach (var r in crossSection.GetComponentsInChildren<Renderer>(true))
+                    r.enabled = false;
 
             slicingPlane = vol.CreateSlicingPlane();
             if (slicingPlane != null)
+            {
                 slicingPlane.transform.localScale = Vector3.one * slicePlaneScale;
+                // Swap the slice material to our transparent variant so out-of-volume / air fragments
+                // don't paint opaque black over the AR camera passthrough (Slice mode in AR otherwise
+                // looked like it had lost the camera feed). Preserves the material's textures/matrices
+                // (same property names); SlicingPlane.Update keeps feeding _planeMat/_parentInverseMat.
+                var smr = slicingPlane.GetComponent<MeshRenderer>();
+                var transparentSlice = Shader.Find("SliceAR/SliceRenderingTransparent");
+                if (smr != null && smr.sharedMaterial != null && transparentSlice != null)
+                    smr.sharedMaterial.shader = transparentSlice;
+            }
 
             ApplyModeVisibility();
         }
