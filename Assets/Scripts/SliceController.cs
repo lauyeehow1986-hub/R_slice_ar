@@ -25,6 +25,10 @@ namespace SliceAR
         [Tooltip("Local scale of the 2D slice quad (bigger = covers more of the volume).")]
         public float slicePlaneScale = 1.0f;
 
+        [Tooltip("CT-viewer in-plane rotation (degrees about the view axis) so the slice reads upright " +
+                 "instead of lying on its side. Tune on-device if the anatomy is rotated.")]
+        public float inPlaneSpinDeg = 90f;
+
         [Tooltip("Hide the 3D volume while in Slice mode for a clean flat 2D-slice (CT-viewer) read. " +
                  "Off keeps the volume visible for context.")]
         public bool hideVolumeInSliceMode = true;
@@ -113,11 +117,13 @@ namespace SliceAR
                 return;
 
             Transform frame = volume.meshRenderer != null ? volume.meshRenderer.transform : volume.transform;
-            // Patient axes in world space (importer maps +X→Left, +Y→Posterior, +Z→Superior).
-            // TransformVector (not TransformDirection) so the importer's handedness flip is included.
-            Vector3 left      = frame.TransformVector(Vector3.right).normalized;
-            Vector3 posterior = frame.TransformVector(Vector3.up).normalized;
-            Vector3 superior  = frame.TransformVector(Vector3.forward).normalized;
+            // Patient axes in world space. Which dataset-local axis maps to Left/Posterior/Superior
+            // depends on how the volume's grid is stored (DICOM convention vs the bundled MRHead's
+            // sagittal acquisition), so read the mapping from VolumeSession. TransformVector (not
+            // TransformDirection) so the importer's baked scale/handedness is included.
+            Vector3 left      = frame.TransformVector(VolumeSession.AxisLeft).normalized;
+            Vector3 posterior = frame.TransformVector(VolumeSession.AxisPosterior).normalized;
+            Vector3 superior  = frame.TransformVector(VolumeSession.AxisSuperior).normalized;
 
             Vector3 normal, up;
             switch (axis)
@@ -146,9 +152,15 @@ namespace SliceAR
             // that field to (0,0,0) even though the C# default is (90,0,0), which is exactly why the
             // 3D scene rendered black while the AR path (runtime-added SliceController → C# default)
             // worked. sliceOffsetEuler remains available as an optional extra fine-tune.
+            // The baked quad/sampling 90° also rotates the sampled image 90° relative to the camera's
+            // up, so the slice appears lying on its side. Spin the plane about the VIEW NORMAL (the
+            // quad's facing direction) to bring the anatomy upright — this rotates the displayed slice
+            // relative to the fixed camera while keeping the quad square-on (so it stays visible, unlike
+            // spinning via sliceOffsetEuler which is about the wrong axis and blacks the slice out).
+            Quaternion viewSpin = Quaternion.AngleAxis(inPlaneSpinDeg, normal);
             slicingPlane.transform.SetPositionAndRotation(
                 slicePos,
-                Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f) * Quaternion.Euler(sliceOffsetEuler));
+                viewSpin * Quaternion.LookRotation(normal, up) * Quaternion.Euler(90f, 0f, 0f) * Quaternion.Euler(sliceOffsetEuler));
 
             if (cam != null)
             {

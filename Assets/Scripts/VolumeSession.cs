@@ -1,8 +1,11 @@
+using UnityEngine;
+
 namespace SliceAR
 {
     /// <summary>
     /// Cross-scene facts about the volume currently loaded, set by <see cref="VolumeFileLoader"/> and
-    /// read by UI. Separate from <see cref="VolumeImportRequest"/> (which is cleared once consumed).
+    /// read by UI / the 3D CT-viewer. Separate from <see cref="VolumeImportRequest"/> (which is cleared
+    /// once consumed).
     /// </summary>
     public static class VolumeSession
     {
@@ -13,29 +16,21 @@ namespace SliceAR
         /// </summary>
         public static bool IsDicomOriented;
 
-        /// <summary>Diagnostic note about how the 3D <see cref="MotionSlicer"/> was obtained at
-        /// runtime (found on the object, added at runtime, or the error if it could not be created).
-        /// Surfaced by the on-screen build stamp to explain a missing slicer on device.</summary>
-        public static string SlicerNote = "";
+        // Which dataset-local axis points to each patient direction, so the 3D CT-viewer can label its
+        // planes (Axial/Coronal/Sagittal) and the orientation markers correctly for volumes whose grid
+        // is not stored in the DICOM convention. Defaults are the DICOM/importer convention
+        // (+X=Left, +Y=Posterior, +Z=Superior); VolumeFileLoader overrides them per dataset (the
+        // bundled MRHead is a sagittal acquisition with a different grid order).
+        public static Vector3 AxisLeft = Vector3.right;
+        public static Vector3 AxisPosterior = Vector3.up;
+        public static Vector3 AxisSuperior = Vector3.forward;
 
-        /// <summary>Append a load-pipeline checkpoint to persistentDataPath/slicer_diag.txt and mirror
-        /// the latest step to <see cref="SlicerNote"/>. The device throttles Unity logcat under
-        /// ARCore's spam and a release APK cannot be read via run-as, so a pullable append-only file
-        /// is the reliable way to see how far the (possibly aborting) load coroutine got. Never
-        /// throws — diagnostics must not affect app behaviour.</summary>
-        public static void Diag(string step, bool reset = false)
+        /// <summary>Reset the anatomical axis mapping to the DICOM/importer convention.</summary>
+        public static void ResetAxes()
         {
-            SlicerNote = step;
-            try
-            {
-                string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "slicer_diag.txt");
-                string line = System.DateTime.Now.ToString("HH:mm:ss.fff") + "  " + step + "\n";
-                if (reset)
-                    System.IO.File.WriteAllText(path, line);
-                else
-                    System.IO.File.AppendAllText(path, line);
-            }
-            catch { /* diagnostics only */ }
+            AxisLeft = Vector3.right;
+            AxisPosterior = Vector3.up;
+            AxisSuperior = Vector3.forward;
         }
     }
 }

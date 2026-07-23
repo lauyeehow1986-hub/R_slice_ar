@@ -12,16 +12,10 @@ namespace SliceAR
     /// </summary>
     public class SliceModeUI : MonoBehaviour
     {
-        // Build tag: bump this string every time we change 3D-mode code so the running APK can be
-        // identified on-device at a glance. If this stamp doesn't change after a rebuild, the build
-        // isn't picking up new code (not a code bug).
-        private const string BuildTag = "ct9";
-
         private SliceController controller;
         private MotionSlicer motionSlicer;
         private Text label;
         private Text axisLabel;
-        private Text buildStamp;        // top-of-screen: build tag + whether the MotionSlicer was found
         private Text sceneSwitchLabel;  // top-right: switch between the AR and 3D scenes
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
@@ -40,19 +34,6 @@ namespace SliceAR
         {
             UpdateOrientationMarkers();
             UpdateAxisLabel();
-            UpdateBuildStamp();
-        }
-
-        private void UpdateBuildStamp()
-        {
-            if (buildStamp == null)
-                return;
-            EnsureController();
-            EnsureMotionSlicer();
-            string slicer = motionSlicer != null ? ("slicer:OK/" + motionSlicer.Axis) : "slicer:MISSING";
-            string mode = controller != null ? controller.Mode.ToString() : "?";
-            string note = string.IsNullOrEmpty(VolumeSession.SlicerNote) ? "" : " · " + VolumeSession.SlicerNote;
-            buildStamp.text = BuildTag + " · " + slicer + " · " + mode + note;
         }
 
         private void BuildUI()
@@ -90,16 +71,6 @@ namespace SliceAR
             markBottom = MakeEdgeLabel(canvasGO.transform, "MarkBottom", new Vector2(0.5f, 0f), new Vector2(0f, 520f));
             markLeft   = MakeEdgeLabel(canvasGO.transform, "MarkLeft",   new Vector2(0f, 0.5f), new Vector2(70f, 0f));
             markRight  = MakeEdgeLabel(canvasGO.transform, "MarkRight",  new Vector2(1f, 0.5f), new Vector2(-70f, 0f));
-
-            // Build stamp (always visible), top-centre. Identifies the running build and reports
-            // whether the 3D-mode slicer was wired up at runtime.
-            buildStamp = MakeEdgeLabel(canvasGO.transform, "BuildStamp", new Vector2(0.5f, 1f), new Vector2(0f, -30f));
-            buildStamp.fontSize = 30;
-            buildStamp.fontStyle = FontStyle.Normal;
-            buildStamp.color = new Color(0.5f, 1f, 0.6f);
-            var bsrt = buildStamp.GetComponent<RectTransform>();
-            bsrt.sizeDelta = new Vector2(900f, 50f);
-            buildStamp.gameObject.SetActive(true);
 
             // Scene switch (top-right): the app has two scenes — ARMode (walk the device through a
             // volume anchored in the room) and ThreeDMode (the stable CT-viewer). Nothing else lets

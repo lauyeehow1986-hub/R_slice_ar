@@ -67,10 +67,8 @@ namespace SliceAR
         /// <summary>Load the dataset and attach the 3D motion slicer to it.</summary>
         public IEnumerator LoadAndAttach()
         {
-            VolumeSession.Diag("LA:enter", reset: true);
             VolumeRenderedObject volume = null;
             yield return Load(v => volume = v);
-            VolumeSession.Diag("LA:post-load vol=" + (volume != null));
 
             if (volume == null && fallbackToSynthetic)
             {
@@ -82,70 +80,21 @@ namespace SliceAR
                 }
             }
 
-            Debug.Log("[SliceAR] LoadAndAttach: volume=" + (volume != null));
-
-            // Keep any load-phase note (createERR/tfERR) as a prefix so the stamp shows both what
-            // failed during load and what happened wiring up the slicer.
-            string note = VolumeSession.SlicerNote;
-            string sep = string.IsNullOrEmpty(note) ? "" : ";";
-
             if (volume != null)
             {
-                // The scene's MotionSlicer component can fail to instantiate in an IL2CPP build even
-                // though it deserialises fine in the editor. If it is missing, recreate it at runtime
-                // (the type still lives in the player assembly) so 3D slicing works regardless. Every
-                // step appends a breadcrumb shown by the on-screen stamp and logged, so a missing
-                // slicer can be diagnosed from the device without a debugger.
-                VolumeSession.Diag("LA:have-volume");
-                MotionSlicer slicer = null;
-                try
-                {
-                    slicer = GetComponent<MotionSlicer>();
-                    note += sep + (slicer != null ? "got" : "getnull");
-                }
-                catch (Exception e)
-                {
-                    note += sep + "getERR:" + e.GetType().Name;
-                    Debug.LogError("[SliceAR] GetComponent<MotionSlicer> failed: " + e);
-                }
-                sep = ";";
-
+                // A scene-serialized MotionSlicer component can fail to instantiate in an IL2CPP build
+                // even though it deserialises fine in the editor. If it is missing, recreate it at
+                // runtime (the type still lives in the player assembly) so 3D slicing works regardless.
+                var slicer = GetComponent<MotionSlicer>();
                 if (slicer == null)
-                {
-                    try
-                    {
-                        slicer = gameObject.AddComponent<MotionSlicer>();
-                        note += ";added";
-                    }
-                    catch (Exception e)
-                    {
-                        note += ";addERR:" + e.GetType().Name;
-                        Debug.LogError("[SliceAR] AddComponent<MotionSlicer> failed: " + e);
-                    }
-                }
-
+                    slicer = gameObject.AddComponent<MotionSlicer>();
                 if (slicer != null)
-                {
-                    try
-                    {
-                        slicer.Attach(volume);
-                        note += ";attached";
-                    }
-                    catch (Exception e)
-                    {
-                        note += ";attachERR:" + e.GetType().Name;
-                        Debug.LogError("[SliceAR] MotionSlicer.Attach failed: " + e);
-                    }
-                }
+                    slicer.Attach(volume);
             }
             else
             {
-                note += sep + "no-volume";
-                Debug.LogError("[SliceAR] no volume could be loaded.");
+                Debug.LogError("VolumeFileLoader: no volume could be loaded.");
             }
-
-            Debug.Log("[SliceAR] SlicerNote=" + note);
-            VolumeSession.Diag("LA:end " + note);
         }
 
         /// <summary>
@@ -166,6 +115,9 @@ namespace SliceAR
                 voxelSizeMm = VolumeImportRequest.voxelSizeMm;
                 transferFunctionPreset = VolumeImportRequest.tfPreset;
                 VolumeSession.IsDicomOriented = kind == VolumeImportRequest.Kind.Dicom;
+                // DICOM (and, as a best guess, imported RAW/image sequences) follow the importer's
+                // +X=Left, +Y=Posterior, +Z=Superior convention.
+                VolumeSession.ResetAxes();
 
                 if (kind == VolumeImportRequest.Kind.ImageSequence)
                 {
@@ -195,10 +147,15 @@ namespace SliceAR
             else
             {
                 VolumeSession.IsDicomOriented = false;   // bundled RAW has no orientation metadata
+                // The bundled MRHead is a sagittal T1 acquisition: its grid is dataset X=anterior/
+                // posterior, Y=superior/inferior, Z=left/right — not the importer convention. Map the
+                // patient axes so the CT-viewer's Axial/Coronal/Sagittal planes come out upright.
+                VolumeSession.AxisLeft      = new Vector3(0f, 0f, 1f);   //  +Z → Left
+                VolumeSession.AxisPosterior = new Vector3(-1f, 0f, 0f);  //  -X → Posterior
+                VolumeSession.AxisSuperior  = new Vector3(0f, -1f, 0f);  //  -Y → Superior
                 yield return LoadBundledRaw(d => dataset = d);
             }
 
-            VolumeSession.Diag("Load:dataset=" + (dataset != null));
             if (dataset == null)
             {
                 onDone(null);
@@ -208,42 +165,29 @@ namespace SliceAR
             dataset.RecalculateBounds();
             if (!importerProvidedScale)
                 ApplyVoxelSize(dataset);
-            VolumeSession.Diag("Load:before-CreateObject");
 
             // Build the rendered object, then apply the transfer function. The TF is cosmetic (the
             // volume renders fine without it), so a TF failure must NOT abort the load — otherwise
-            // onDone never fires, the slicer never attaches, and 3D mode silently shows only the raw
-            // volume. Each step is wrapped so onDone always runs with whatever we managed to build,
-            // and the failing step is recorded for the on-screen stamp.
+            // onDone never fires and the slicer never attaches. Both steps are guarded so onDone always
+            // runs with whatever we managed to build.
             VolumeRenderedObject obj = null;
             try
             {
                 obj = VolumeObjectFactory.CreateObject(dataset);
                 obj.transform.SetParent(transform, false);
-                VolumeSession.Diag("Load:CreateObject-ok");
             }
             catch (Exception e)
             {
-                VolumeSession.Diag("Load:createERR:" + e.GetType().Name);
-                Debug.LogError("[SliceAR] CreateObject failed: " + e);
+                Debug.LogError("VolumeFileLoader: CreateObject failed: " + e);
             }
 
             if (obj != null)
             {
-                try
-                {
-                    ApplyTransferFunction(obj);
-                    VolumeSession.Diag("Load:TF-ok");
-                }
-                catch (Exception e)
-                {
-                    VolumeSession.Diag("Load:tfERR:" + e.GetType().Name);
-                    Debug.LogError("[SliceAR] ApplyTransferFunction failed: " + e);
-                }
+                try { ApplyTransferFunction(obj); }
+                catch (Exception e) { Debug.LogError("VolumeFileLoader: ApplyTransferFunction failed: " + e); }
             }
 
             spawned = obj;
-            VolumeSession.Diag("Load:before-onDone");
             onDone(obj);
         }
 
