@@ -67,8 +67,10 @@ namespace SliceAR
         /// <summary>Load the dataset and attach the 3D motion slicer to it.</summary>
         public IEnumerator LoadAndAttach()
         {
+            VolumeSession.Diag("LA:enter", reset: true);
             VolumeRenderedObject volume = null;
             yield return Load(v => volume = v);
+            VolumeSession.Diag("LA:post-load vol=" + (volume != null));
 
             if (volume == null && fallbackToSynthetic)
             {
@@ -94,6 +96,7 @@ namespace SliceAR
                 // (the type still lives in the player assembly) so 3D slicing works regardless. Every
                 // step appends a breadcrumb shown by the on-screen stamp and logged, so a missing
                 // slicer can be diagnosed from the device without a debugger.
+                VolumeSession.Diag("LA:have-volume");
                 MotionSlicer slicer = null;
                 try
                 {
@@ -141,13 +144,8 @@ namespace SliceAR
                 Debug.LogError("[SliceAR] no volume could be loaded.");
             }
 
-            VolumeSession.SlicerNote = note;
             Debug.Log("[SliceAR] SlicerNote=" + note);
-
-            // Also write the breadcrumb to a file: the device's log daemon throttles Unity lines
-            // under ARCore's log spam, so a pullable file is the reliable diagnostic channel.
-            try { File.WriteAllText(Path.Combine(Application.persistentDataPath, "slicer_diag.txt"), note); }
-            catch { /* diagnostics only */ }
+            VolumeSession.Diag("LA:end " + note);
         }
 
         /// <summary>
@@ -200,6 +198,7 @@ namespace SliceAR
                 yield return LoadBundledRaw(d => dataset = d);
             }
 
+            VolumeSession.Diag("Load:dataset=" + (dataset != null));
             if (dataset == null)
             {
                 onDone(null);
@@ -209,6 +208,7 @@ namespace SliceAR
             dataset.RecalculateBounds();
             if (!importerProvidedScale)
                 ApplyVoxelSize(dataset);
+            VolumeSession.Diag("Load:before-CreateObject");
 
             // Build the rendered object, then apply the transfer function. The TF is cosmetic (the
             // volume renders fine without it), so a TF failure must NOT abort the load — otherwise
@@ -220,10 +220,11 @@ namespace SliceAR
             {
                 obj = VolumeObjectFactory.CreateObject(dataset);
                 obj.transform.SetParent(transform, false);
+                VolumeSession.Diag("Load:CreateObject-ok");
             }
             catch (Exception e)
             {
-                VolumeSession.SlicerNote = "createERR:" + e.GetType().Name;
+                VolumeSession.Diag("Load:createERR:" + e.GetType().Name);
                 Debug.LogError("[SliceAR] CreateObject failed: " + e);
             }
 
@@ -232,15 +233,17 @@ namespace SliceAR
                 try
                 {
                     ApplyTransferFunction(obj);
+                    VolumeSession.Diag("Load:TF-ok");
                 }
                 catch (Exception e)
                 {
-                    VolumeSession.SlicerNote = "tfERR:" + e.GetType().Name;
+                    VolumeSession.Diag("Load:tfERR:" + e.GetType().Name);
                     Debug.LogError("[SliceAR] ApplyTransferFunction failed: " + e);
                 }
             }
 
             spawned = obj;
+            VolumeSession.Diag("Load:before-onDone");
             onDone(obj);
         }
 

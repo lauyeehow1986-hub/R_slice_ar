@@ -17,5 +17,25 @@ namespace SliceAR
         /// runtime (found on the object, added at runtime, or the error if it could not be created).
         /// Surfaced by the on-screen build stamp to explain a missing slicer on device.</summary>
         public static string SlicerNote = "";
+
+        /// <summary>Append a load-pipeline checkpoint to persistentDataPath/slicer_diag.txt and mirror
+        /// the latest step to <see cref="SlicerNote"/>. The device throttles Unity logcat under
+        /// ARCore's spam and a release APK cannot be read via run-as, so a pullable append-only file
+        /// is the reliable way to see how far the (possibly aborting) load coroutine got. Never
+        /// throws — diagnostics must not affect app behaviour.</summary>
+        public static void Diag(string step, bool reset = false)
+        {
+            SlicerNote = step;
+            try
+            {
+                string path = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "slicer_diag.txt");
+                string line = System.DateTime.Now.ToString("HH:mm:ss.fff") + "  " + step + "\n";
+                if (reset)
+                    System.IO.File.WriteAllText(path, line);
+                else
+                    System.IO.File.AppendAllText(path, line);
+            }
+            catch { /* diagnostics only */ }
+        }
     }
 }
