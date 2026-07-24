@@ -30,6 +30,11 @@ namespace SliceAR
         // Last two-finger pinch distance (pixels), -1 when not pinching.
         private float lastPinchDist = -1f;
 
+        // Single-finger drag state for orbiting the 3D Clip cut-away.
+        private Vector2 lastDragPos;
+        private bool dragging;
+        private const float OrbitDegPerPixel = 0.25f;
+
         /// <summary>Set up slicing for <paramref name="volume"/>, driven by device tilt.</summary>
         public void Attach(VolumeRenderedObject volume)
         {
@@ -96,6 +101,68 @@ namespace SliceAR
 
             controller.ShowCtSlice(Axis, depth01, Camera.main);
             HandleZoom();
+            HandleOrbit();
+        }
+
+        // Single-finger drag (device) or left-mouse drag (editor) orbits the 3D Clip cut-away camera.
+        // Only active in Clip mode — Slice mode stays face-on. Two-finger gestures are left to HandleZoom.
+        private void HandleOrbit()
+        {
+            if (controller == null || controller.Mode != SliceController.SliceMode.Clip)
+            {
+                dragging = false;
+                return;
+            }
+
+            var ts = Touchscreen.current;
+            if (ts != null)
+            {
+                int down = 0;
+                Vector2 p = Vector2.zero;
+                foreach (var t in ts.touches)
+                {
+                    if (!t.press.isPressed)
+                        continue;
+                    if (down == 0) p = t.position.ReadValue();
+                    down++;
+                }
+
+                if (down == 1)
+                {
+                    if (dragging)
+                    {
+                        Vector2 d = p - lastDragPos;
+                        controller.OrbitBy(-d.x * OrbitDegPerPixel, d.y * OrbitDegPerPixel);
+                    }
+                    lastDragPos = p;
+                    dragging = true;
+                }
+                else
+                {
+                    dragging = false;   // 0 or 2+ fingers is not a single-finger orbit drag
+                }
+                return;
+            }
+
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                if (mouse.leftButton.isPressed)
+                {
+                    Vector2 p = mouse.position.ReadValue();
+                    if (dragging)
+                    {
+                        Vector2 d = p - lastDragPos;
+                        controller.OrbitBy(-d.x * OrbitDegPerPixel, d.y * OrbitDegPerPixel);
+                    }
+                    lastDragPos = p;
+                    dragging = true;
+                }
+                else
+                {
+                    dragging = false;
+                }
+            }
         }
 
         // Two-finger pinch (device) or mouse wheel (editor) dollies the CT-viewer camera.

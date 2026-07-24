@@ -65,6 +65,13 @@ namespace SliceAR
         private const float MinCamDistance = 0.2f;
         private const float MaxCamDistance = 8f;
 
+        // Clip-mode orbit: the camera swings around the volume centre by these angles (degrees) so the
+        // user can rotate the 3D cut-away with a finger drag. Defaults give a pleasant 3/4 view. Yaw is
+        // about the view `up`, pitch about the view `right`; pitch is clamped to avoid flipping over the
+        // poles. Slice mode ignores these (it stays face-on).
+        private float orbitYaw = 22f;
+        private float orbitPitch = -27f;
+
         /// <param name="showCutIndicator">Keep the cross-section plane's outline visible. AR passes true
         /// (in Clip mode it shows where the cutting plane is as you steer the device through the volume —
         /// aiming feedback); the 3D CT-viewer passes false (there the box just floats confusingly, and the
@@ -209,9 +216,13 @@ namespace SliceAR
                 // 3D object (a straight-down view makes the cut look like a flat "half image").
                 if (Mode == SliceMode.Clip)
                 {
-                    Vector3 viewDir = (normal + 0.55f * up + 0.4f * right).normalized;
+                    // Orbit the camera around the volume centre by the user-controlled yaw/pitch, starting
+                    // from the axis normal, so the 3D cut-away can be spun with a finger (see OrbitBy).
+                    Quaternion orbit = Quaternion.AngleAxis(orbitYaw, up) * Quaternion.AngleAxis(orbitPitch, right);
+                    Vector3 viewDir = (orbit * normal).normalized;
+                    Vector3 camUp = (orbit * up).normalized;
                     cam.transform.position = centre - viewDir * camDistance * 1.35f;
-                    cam.transform.rotation = Quaternion.LookRotation(viewDir, up);
+                    cam.transform.rotation = Quaternion.LookRotation(viewDir, camUp);
                 }
                 else
                 {
@@ -227,6 +238,15 @@ namespace SliceAR
         public void ZoomBy(float factor)
         {
             zoomFactor = Mathf.Clamp(zoomFactor / Mathf.Max(factor, 1e-3f), 0.25f, 4f);
+        }
+
+        /// <summary>Spin the Clip-mode 3D cut-away camera around the volume by the given yaw/pitch deltas
+        /// (degrees). No-op visual effect in Slice mode (which stays face-on). Pitch is clamped so the
+        /// view can't tumble past the poles.</summary>
+        public void OrbitBy(float deltaYaw, float deltaPitch)
+        {
+            orbitYaw += deltaYaw;
+            orbitPitch = Mathf.Clamp(orbitPitch + deltaPitch, -85f, 85f);
         }
 
         // Half the volume's world extent along the given (unit) direction.
