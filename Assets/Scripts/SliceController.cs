@@ -65,16 +65,19 @@ namespace SliceAR
         private const float MinCamDistance = 0.2f;
         private const float MaxCamDistance = 8f;
 
-        public void Setup(VolumeRenderedObject vol)
+        /// <param name="showCutIndicator">Keep the cross-section plane's outline visible. AR passes true
+        /// (in Clip mode it shows where the cutting plane is as you steer the device through the volume —
+        /// aiming feedback); the 3D CT-viewer passes false (there the box just floats confusingly, and the
+        /// cut face is already visible on the volume).</param>
+        public void Setup(VolumeRenderedObject vol, bool showCutIndicator = false)
         {
             volume = vol;
 
             VolumeObjectFactory.SpawnCrossSectionPlane(vol);
             crossSection = Object.FindObjectOfType<CrossSectionPlane>();
-            // Hide the cross-section plane's green wireframe gizmo — the cut itself is visible on the
-            // volume, so the outline just reads as a confusing floating box. The cut is applied via the
-            // CrossSectionManager (matrix), not the renderer, so hiding the renderer is safe.
-            if (crossSection != null)
+            // The cut is applied via the CrossSectionManager (matrix), not the renderer, so toggling the
+            // renderer only shows/hides the outline gizmo — the cut itself is unaffected either way.
+            if (crossSection != null && !showCutIndicator)
                 foreach (var r in crossSection.GetComponentsInChildren<Renderer>(true))
                     r.enabled = false;
 

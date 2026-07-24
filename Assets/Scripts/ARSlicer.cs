@@ -20,7 +20,10 @@ namespace SliceAR
             controller = GetComponent<SliceController>();
             if (controller == null)
                 controller = gameObject.AddComponent<SliceController>();
-            controller.Setup(volume);
+            // Show the cut-plane outline in AR: in Clip mode it marks where the cutting plane sits so the
+            // user can aim the device as they push it through the anchored volume. (It only draws in Clip
+            // mode; Slice mode keeps a clean passthrough.)
+            controller.Setup(volume, showCutIndicator: true);
             arCamera = cameraTransform;
         }
 
