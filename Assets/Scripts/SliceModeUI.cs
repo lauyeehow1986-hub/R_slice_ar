@@ -17,6 +17,7 @@ namespace SliceAR
         private Text label;
         private Text axisLabel;
         private Text sceneSwitchLabel;  // top-right: switch between the AR and 3D scenes
+        private Text lutLabel;          // top-right: cycle the colour LUT (transfer-function palette)
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
         // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
@@ -85,6 +86,50 @@ namespace SliceAR
             var ssimg = sceneSwitchLabel.transform.parent.GetComponent<Image>();
             if (ssimg != null) ssimg.color = new Color(0.10f, 0.30f, 0.45f, 0.85f);
             UpdateSceneSwitchLabel();
+
+            // Colour-LUT picker (top-right, below the scene switch): cycles the transfer-function
+            // palette (Grayscale / Hot Metal / Rainbow / Cool) and re-applies it to the loaded volume.
+            lutLabel = MakeButton(canvasGO.transform, "LutButton",
+                Vector2.zero, new Vector2(320f, 120f), OnCycleLut);
+            var lrt = lutLabel.transform.parent.GetComponent<RectTransform>();
+            lrt.anchorMin = lrt.anchorMax = new Vector2(1f, 1f);
+            lrt.pivot = new Vector2(1f, 1f);
+            lrt.anchoredPosition = new Vector2(-40f, -290f);
+            var limg = lutLabel.transform.parent.GetComponent<Image>();
+            if (limg != null) limg.color = new Color(0.30f, 0.20f, 0.40f, 0.85f);
+            lutLabel.fontSize = 34;
+            UpdateLutLabel();
+
+            // The "not for diagnosis" disclaimer is required in-app; add its self-contained UI here so
+            // no scene wiring is needed (shows once per launch + a persistent footer).
+            if (GetComponent<DisclaimerUI>() == null)
+                gameObject.AddComponent<DisclaimerUI>();
+        }
+
+        private void OnCycleLut()
+        {
+            var values = (ColorLUT[])System.Enum.GetValues(typeof(ColorLUT));
+            VolumeSession.ColorLUT = values[(((int)VolumeSession.ColorLUT) + 1) % values.Length];
+
+            var vol = Object.FindObjectOfType<UnityVolumeRendering.VolumeRenderedObject>();
+            if (vol != null)
+                vol.SetTransferFunction(TransferFunctions.Build(VolumeSession.WindowPreset, VolumeSession.ColorLUT));
+            UpdateLutLabel();
+        }
+
+        private void UpdateLutLabel()
+        {
+            if (lutLabel == null)
+                return;
+            string name;
+            switch (VolumeSession.ColorLUT)
+            {
+                case ColorLUT.HotMetal: name = "Hot Metal"; break;
+                case ColorLUT.Rainbow:  name = "Rainbow"; break;
+                case ColorLUT.Cool:     name = "Cool"; break;
+                default:                name = "Grayscale"; break;
+            }
+            lutLabel.text = "LUT: " + name;
         }
 
         private void OnSwitchScene()

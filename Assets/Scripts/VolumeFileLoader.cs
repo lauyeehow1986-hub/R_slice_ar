@@ -347,57 +347,17 @@ namespace SliceAR
         /// </summary>
         private void ApplyTransferFunction(VolumeRenderedObject volume)
         {
-            if (transferFunctionPreset == TFPreset.PluginDefault)
+            // Record the window so the runtime LUT picker can rebuild the transfer function from it.
+            VolumeSession.WindowPreset = transferFunctionPreset;
+
+            // With no window preset and the plain Grayscale LUT there is nothing to add over the
+            // renderer's own default, so leave it untouched (historical PluginDefault behaviour).
+            if (transferFunctionPreset == TFPreset.PluginDefault && VolumeSession.ColorLUT == ColorLUT.Grayscale)
                 return;
 
-            var tf = ScriptableObject.CreateInstance<UnityVolumeRendering.TransferFunction>();
-            tf.colourControlPoints.Clear();
-            tf.alphaControlPoints.Clear();
-
-            if (transferFunctionPreset == TFPreset.CT)
-            {
-                // Placed from a CT histogram: air near 0, a soft-tissue spike ~0.32, thin bone tail >0.75.
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.00f, new Color(0f, 0f, 0f)));
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.11f, new Color(0f, 0f, 0f)));        // air → black
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.20f, new Color(0.18f, 0.16f, 0.15f)));// skin/edge
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.32f, new Color(0.42f, 0.38f, 0.34f)));// soft tissue → grey
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.50f, new Color(0.62f, 0.57f, 0.50f)));
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.72f, new Color(0.88f, 0.84f, 0.76f)));// cancellous bone
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.85f, new Color(1f, 0.98f, 0.93f)));  // cortical bone
-                tf.colourControlPoints.Add(new TFColourControlPoint(1.00f, new Color(1f, 1f, 1f)));
-
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.00f, 0.00f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.11f, 0.00f));   // air transparent
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.22f, 0.02f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.32f, 0.06f));   // soft tissue faint → see-through
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.50f, 0.15f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.70f, 0.55f));   // bone becomes solid
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(1.00f, 0.95f));
-            }
-            else // MRI
-            {
-                // Placed from an MRI histogram: ~53% air at 0, all tissue packed into ~0.05..0.55.
-                // Window that band across black→white (MRI has no bright "bone" tail; bone is dark).
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.00f, new Color(0f, 0f, 0f)));
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.04f, new Color(0f, 0f, 0f)));         // background → black
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.12f, new Color(0.14f, 0.14f, 0.15f)));// low signal
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.24f, new Color(0.48f, 0.48f, 0.50f)));// brain tissue → grey
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.36f, new Color(0.74f, 0.74f, 0.76f)));// brighter tissue
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.50f, new Color(0.95f, 0.95f, 0.97f)));// fat/scalp → near white
-                tf.colourControlPoints.Add(new TFColourControlPoint(0.62f, new Color(1f, 1f, 1f)));
-                tf.colourControlPoints.Add(new TFColourControlPoint(1.00f, new Color(1f, 1f, 1f)));
-
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.00f, 0.00f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.05f, 0.00f));   // air transparent
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.14f, 0.06f));   // faint tissue
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.25f, 0.22f));   // brain tissue
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.40f, 0.55f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(0.55f, 0.85f));
-                tf.alphaControlPoints.Add(new TFAlphaControlPoint(1.00f, 0.95f));
-            }
-
-            tf.GenerateTexture();
-            volume.SetTransferFunction(tf);
+            // The window preset sets the luminance/opacity ramp; the colour LUT recolours it. Both the
+            // CT/MRI ramps and the palettes live in TransferFunctions so the picker reuses them.
+            volume.SetTransferFunction(TransferFunctions.Build(transferFunctionPreset, VolumeSession.ColorLUT));
         }
     }
 }

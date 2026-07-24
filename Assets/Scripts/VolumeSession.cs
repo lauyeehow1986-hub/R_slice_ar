@@ -32,5 +32,20 @@ namespace SliceAR
             AxisPosterior = Vector3.up;
             AxisSuperior = Vector3.forward;
         }
+
+        /// <summary>
+        /// The intensity window preset applied to the current volume (set by <see cref="VolumeFileLoader"/>
+        /// at load). The runtime LUT picker rebuilds the transfer function from this plus <see cref="ColorLUT"/>,
+        /// so recolouring never disturbs the windowing.
+        /// </summary>
+        public static VolumeFileLoader.TFPreset WindowPreset = VolumeFileLoader.TFPreset.MRI;
+
+        /// <summary>Currently selected colour lookup table. Static so the choice persists across the
+        /// scene reload that a dataset import / AR↔3D switch performs.</summary>
+        public static ColorLUT ColorLUT = ColorLUT.Grayscale;
+
+        /// <summary>Whether the user has dismissed the "not for diagnosis" disclaimer this run. Static
+        /// (not persisted) so the disclaimer shows once per app launch but not on every scene switch.</summary>
+        public static bool DisclaimerAcknowledged;
     }
 }
