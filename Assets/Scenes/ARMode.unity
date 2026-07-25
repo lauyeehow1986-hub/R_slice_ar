@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 189456526}
   - component: {fileID: 189456525}
+  - component: {fileID: 189456527}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -169,6 +170,22 @@ Transform:
   - {fileID: 212029274}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &189456527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 189456524}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 728ad7fae8e460a4ba41265c7308d757, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARAnchorManager
+  <trackablesChanged>k__BackingField:
+    m_PersistentCalls:
+      m_Calls: []
+  m_AnchorPrefab: {fileID: 0}
 --- !u!1 &206345881
 GameObject:
   m_ObjectHideFlags: 0

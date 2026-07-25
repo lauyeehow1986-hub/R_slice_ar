@@ -66,11 +66,21 @@ namespace SliceAR
             volume.gameObject.SetActive(true);
 
             Transform cam = Camera.main != null ? Camera.main.transform : null;
-            Vector3 anchor = cam != null
+            Vector3 anchorPos = cam != null
                 ? cam.position + cam.forward * anchorDistance
                 : Vector3.forward * anchorDistance;
 
-            volume.transform.position = anchor;
+            // Attach the volume to an ARAnchor so ARCore keeps it pinned to the physical world. Setting a
+            // raw world position (as before) lets the volume drift/slide "by itself" as ARCore refines its
+            // map (loop closures, drift correction) — an anchor is corrected in lock-step with the world so
+            // the content stays put. Needs an enabled ARAnchorManager on the XR Origin (added to the scene).
+            var anchorGO = new GameObject("VolumeAnchor");
+            anchorGO.transform.SetPositionAndRotation(anchorPos, Quaternion.identity);
+            anchorGO.AddComponent<ARAnchor>();
+
+            volume.transform.SetParent(anchorGO.transform, false);
+            volume.transform.localPosition = Vector3.zero;
+            volume.transform.localRotation = Quaternion.identity;
             volume.transform.localScale = Vector3.one * arScale;
 
             var slicer = gameObject.GetComponent<ARSlicer>();
