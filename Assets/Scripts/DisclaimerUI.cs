@@ -16,16 +16,11 @@ namespace SliceAR
     /// </summary>
     public class DisclaimerUI : MonoBehaviour
     {
-        private const string Body =
-            "Slice-AR is an educational and research tool for exploring 3D medical volume data.\n\n" +
-            "It is NOT a medical device and must NOT be used for diagnosis, treatment, or any clinical " +
-            "decision-making.\n\n" +
-            "Bundled datasets are de-identified or synthetic. Only load data you are authorised to use — " +
-            "never real patient studies without consent.";
-
-        private const string Footer = "For education & research only — not for diagnostic use";
-
         private GameObject modal;
+        private Text footerText, bodyText, ackLabel;   // kept so a language change can re-render them
+
+        private void OnEnable()  { Loc.LanguageChanged += RefreshTexts; }
+        private void OnDisable() { Loc.LanguageChanged -= RefreshTexts; }
 
         private void Start()
         {
@@ -33,6 +28,14 @@ namespace SliceAR
             BuildFooter();
             if (!VolumeSession.DisclaimerAcknowledged)
                 BuildModal();
+        }
+
+        // Re-render the disclaimer text (and re-pick a glyph-appropriate font) after a language change.
+        private void RefreshTexts()
+        {
+            if (footerText != null) { footerText.font = AppFont.Get(); footerText.text = Loc.T("disclaimer.footer"); }
+            if (bodyText != null)   { bodyText.font = AppFont.Get(); bodyText.text = Loc.T("disclaimer.body"); }
+            if (ackLabel != null)   { ackLabel.font = AppFont.Get(); ackLabel.text = Loc.T("disclaimer.ack"); }
         }
 
         private static void EnsureEventSystem()
@@ -65,11 +68,12 @@ namespace SliceAR
             var go = new GameObject("FooterText");
             go.transform.SetParent(canvas.transform, false);
             var text = go.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 30;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = new Color(1f, 0.85f, 0.2f, 0.9f);
-            text.text = Footer;
+            text.text = Loc.T("disclaimer.footer");
+            footerText = text;
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
@@ -95,15 +99,17 @@ namespace SliceAR
             bgrt.offsetMin = Vector2.zero;
             bgrt.offsetMax = Vector2.zero;
 
+            // Title is the brand name — not localized.
             AddText(bg.transform, "Title", "Slice-AR", 64, FontStyle.Bold, Color.white,
                 new Vector2(0.5f, 0.78f), new Vector2(0f, 0f), new Vector2(960f, 120f));
 
-            AddText(bg.transform, "Body", Body, 40, FontStyle.Normal, new Color(0.92f, 0.92f, 0.92f),
+            bodyText = AddText(bg.transform, "Body", Loc.T("disclaimer.body"), 40, FontStyle.Normal,
+                new Color(0.92f, 0.92f, 0.92f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(920f, 760f));
 
-            var btnLabel = MakeButton(bg.transform, "AckButton", new Vector2(0.5f, 0.14f),
+            ackLabel = MakeButton(bg.transform, "AckButton", new Vector2(0.5f, 0.14f),
                 new Vector2(640f, 150f), Acknowledge);
-            btnLabel.text = "I Understand";
+            ackLabel.text = Loc.T("disclaimer.ack");
         }
 
         private void Acknowledge()
@@ -119,7 +125,7 @@ namespace SliceAR
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var text = go.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = size;
             text.fontStyle = style;
             text.alignment = TextAnchor.MiddleCenter;
@@ -154,7 +160,7 @@ namespace SliceAR
             var txtGO = new GameObject("Label");
             txtGO.transform.SetParent(btnGO.transform, false);
             var text = txtGO.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 48;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;

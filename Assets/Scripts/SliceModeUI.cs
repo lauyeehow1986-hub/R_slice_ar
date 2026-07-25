@@ -18,12 +18,17 @@ namespace SliceAR
         private Text axisLabel;
         private Text sceneSwitchLabel;  // top-right: switch between the AR and 3D scenes
         private Text lutLabel;          // top-right: cycle the colour LUT (transfer-function palette)
+        private Text langLabel;         // top-right: cycle the UI language
+        private Text recenterLabel;     // bottom-centre: recenter (kept for language refresh)
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
         // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
         private Text markTop, markBottom, markLeft, markRight;
         private Transform orientFrame;   // the volume's LPS-oriented container transform
         private Camera viewCamera;
+
+        private void OnEnable()  { Loc.LanguageChanged += RefreshTexts; }
+        private void OnDisable() { Loc.LanguageChanged -= RefreshTexts; }
 
         private void Start()
         {
@@ -61,8 +66,9 @@ namespace SliceAR
 
             // Recenter, bottom-centre just above the mode button — sets the current tilt as the
             // mid-stack neutral and clears accumulated sensor drift.
-            MakeButton(canvasGO.transform, "RecenterButton",
-                new Vector2(0f, 320f), new Vector2(420f, 140f), OnRecenter).text = "Recenter";
+            recenterLabel = MakeButton(canvasGO.transform, "RecenterButton",
+                new Vector2(0f, 320f), new Vector2(420f, 140f), OnRecenter);
+            recenterLabel.text = Loc.T("recenter");
 
             // Axis cycle (Axial/Coronal/Sagittal), above Recenter.
             axisLabel = MakeButton(canvasGO.transform, "AxisButton",
@@ -101,6 +107,19 @@ namespace SliceAR
             lutLabel.fontSize = 34;
             UpdateLutLabel();
 
+            // Language picker (top-right, below the LUT button): cycles the UI language. Selection is
+            // static + persisted, so it carries across scene switches and app restarts.
+            langLabel = MakeButton(canvasGO.transform, "LangButton",
+                Vector2.zero, new Vector2(320f, 120f), OnCycleLanguage);
+            var glrt = langLabel.transform.parent.GetComponent<RectTransform>();
+            glrt.anchorMin = glrt.anchorMax = new Vector2(1f, 1f);
+            glrt.pivot = new Vector2(1f, 1f);
+            glrt.anchoredPosition = new Vector2(-40f, -430f);
+            var glimg = langLabel.transform.parent.GetComponent<Image>();
+            if (glimg != null) glimg.color = new Color(0.20f, 0.35f, 0.25f, 0.85f);
+            langLabel.fontSize = 34;
+            langLabel.text = Loc.DisplayName(Loc.Current);
+
             // The "not for diagnosis" disclaimer is required in-app; add its self-contained UI here so
             // no scene wiring is needed (shows once per launch + a persistent footer).
             if (GetComponent<DisclaimerUI>() == null)
@@ -135,15 +154,30 @@ namespace SliceAR
         {
             if (lutLabel == null)
                 return;
-            string name;
-            switch (VolumeSession.ColorLUT)
-            {
-                case ColorLUT.HotMetal: name = "Hot Metal"; break;
-                case ColorLUT.Rainbow:  name = "Rainbow"; break;
-                case ColorLUT.Cool:     name = "Cool"; break;
-                default:                name = "Grayscale"; break;
-            }
-            lutLabel.text = "LUT: " + name;
+            // "LUT" is kept as the (international) technical abbreviation; only the palette name localizes.
+            lutLabel.text = "LUT: " + Loc.T("lut." + VolumeSession.ColorLUT.ToString().ToLowerInvariant());
+        }
+
+        private void OnCycleLanguage()
+        {
+            // Fires Loc.LanguageChanged, which routes back into RefreshTexts (this component is subscribed)
+            // and into the disclaimer + annotation UIs so every label re-renders in the new language.
+            Loc.CycleLanguage();
+        }
+
+        // Re-render every managed label (and re-pick a glyph-appropriate font) after a language change.
+        private void RefreshTexts()
+        {
+            if (recenterLabel != null) { recenterLabel.font = AppFont.Get(); recenterLabel.text = Loc.T("recenter"); }
+            if (langLabel != null)     { langLabel.font = AppFont.Get(); langLabel.text = Loc.DisplayName(Loc.Current); }
+            if (label != null)      label.font = AppFont.Get();
+            if (axisLabel != null)  axisLabel.font = AppFont.Get();
+            if (sceneSwitchLabel != null) sceneSwitchLabel.font = AppFont.Get();
+            if (lutLabel != null)   lutLabel.font = AppFont.Get();
+            UpdateLabel();
+            UpdateAxisLabel();
+            UpdateSceneSwitchLabel();
+            UpdateLutLabel();
         }
 
         private void OnSwitchScene()
@@ -158,7 +192,8 @@ namespace SliceAR
             if (sceneSwitchLabel == null)
                 return;
             // Label names the destination, not the current scene.
-            sceneSwitchLabel.text = SceneManager.GetActiveScene().name == "ThreeDMode" ? "AR mode" : "3D view";
+            sceneSwitchLabel.text = SceneManager.GetActiveScene().name == "ThreeDMode"
+                ? Loc.T("scene.ar") : Loc.T("scene.3d");
         }
 
         /// <summary>Create a small fixed anatomical-marker label anchored to a screen edge.</summary>
@@ -167,7 +202,7 @@ namespace SliceAR
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var text = go.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 52;
             text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
@@ -272,7 +307,7 @@ namespace SliceAR
             var txtGO = new GameObject("Label");
             txtGO.transform.SetParent(btnGO.transform, false);
             var text = txtGO.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 48;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
@@ -321,7 +356,7 @@ namespace SliceAR
             bool show = motionSlicer != null && controller != null && controller.Mode == SliceController.SliceMode.Slice;
             axisLabel.transform.parent.gameObject.SetActive(show);
             if (show)
-                axisLabel.text = "Axis: " + motionSlicer.Axis;
+                axisLabel.text = Loc.T("axis") + ": " + Loc.T("axis." + motionSlicer.Axis.ToString().ToLowerInvariant());
         }
 
         private void OnClick()
@@ -336,7 +371,9 @@ namespace SliceAR
         {
             EnsureController();
             if (label != null)
-                label.text = controller != null ? "Mode: " + controller.Mode : "Mode";
+                label.text = controller != null
+                    ? Loc.T("mode") + ": " + Loc.T("mode." + controller.Mode.ToString().ToLowerInvariant())
+                    : Loc.T("mode");
         }
 
         private void EnsureController()

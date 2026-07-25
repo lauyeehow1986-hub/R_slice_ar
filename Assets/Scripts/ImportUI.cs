@@ -24,6 +24,7 @@ namespace SliceAR
         };
 
         private Font font;
+        private GameObject canvasGO;
         private GameObject panel;
 
         private InputField voxX, voxY, voxZ;
@@ -34,12 +35,27 @@ namespace SliceAR
         private Button formatBtn, endianBtn, tfBtn;
         private Text statusText;
 
+        private void OnEnable()  { Loc.LanguageChanged += RefreshTexts; }
+        private void OnDisable() { Loc.LanguageChanged -= RefreshTexts; }
+
         private void Start()
         {
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             EnsureEventSystem();
             BuildUI();
             SetPanelVisible(false);
+        }
+
+        // The import panel is a whole form of static labels; rather than track every Text, rebuild it in the
+        // new language (with a glyph-appropriate font), preserving whether it was open. Any half-typed
+        // dimensions reset — an acceptable edge case for a mid-session language switch.
+        private void RefreshTexts()
+        {
+            if (canvasGO == null)
+                return;
+            bool wasVisible = panel != null && panel.activeSelf;
+            Destroy(canvasGO);
+            BuildUI();
+            SetPanelVisible(wasVisible);
         }
 
         private void EnsureEventSystem()
@@ -54,7 +70,8 @@ namespace SliceAR
 
         private void BuildUI()
         {
-            var canvasGO = new GameObject("ImportCanvas");
+            font = AppFont.Get();   // re-picked here so a rebuild after a language change updates glyphs
+            canvasGO = new GameObject("ImportCanvas");
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 10;
@@ -64,7 +81,7 @@ namespace SliceAR
             canvasGO.AddComponent<GraphicRaycaster>();
 
             // "Import" launcher button (top-left, clear of the bottom-centre Mode button).
-            var openBtn = CreateButton(canvasGO.transform, "Import", new Vector2(0f, 1f),
+            var openBtn = CreateButton(canvasGO.transform, Loc.T("import.open"), new Vector2(0f, 1f),
                 new Vector2(40f, -40f), new Vector2(300f, 130f), () => SetPanelVisible(true));
             var obr = openBtn.GetComponent<RectTransform>();
             obr.pivot = new Vector2(0f, 1f);
@@ -80,56 +97,56 @@ namespace SliceAR
             prt.sizeDelta = new Vector2(900f, 1480f);
 
             float y = 640f;
-            CreateLabel(panel.transform, "Import dataset", 44, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, Loc.T("import.title"), 44, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 100f;
 
             // Shared voxel size row.
-            CreateLabel(panel.transform, "Voxel size (mm)", 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, Loc.T("import.voxel"), 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
             voxX = CreateInput(panel.transform, "1", new Vector2(70f, y), true);
             voxY = CreateInput(panel.transform, "1", new Vector2(230f, y), true);
             voxZ = CreateInput(panel.transform, "1", new Vector2(390f, y), true);
             y -= 90f;
 
             // Transfer function cycle.
-            CreateLabel(panel.transform, "Transfer func", 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, Loc.T("import.tf"), 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
             tfBtn = CreateButton(panel.transform, TfLabel(), new Vector2(0.5f, 0.5f), new Vector2(150f, y),
                 new Vector2(300f, 80f), CycleTf);
             y -= 120f;
 
-            CreateLabel(panel.transform, "Image sequence — .zip of PNG/JPG slices", 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, Loc.T("import.seq_hint"), 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 80f;
-            CreateButton(panel.transform, "Pick image stack (.zip)…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+            CreateButton(panel.transform, Loc.T("import.pick_seq"), new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(700f, 100f), PickImageSequence);
             y -= 120f;
 
-            CreateLabel(panel.transform, "— or headerless RAW —", 30, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, Loc.T("import.or_raw"), 30, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 80f;
 
-            CreateLabel(panel.transform, "Dimensions", 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, Loc.T("import.dims"), 32, new Vector2(-260f, y), 340f, TextAnchor.MiddleLeft);
             dimX = CreateInput(panel.transform, "256", new Vector2(70f, y), false);
             dimY = CreateInput(panel.transform, "256", new Vector2(230f, y), false);
             dimZ = CreateInput(panel.transform, "130", new Vector2(390f, y), false);
             y -= 90f;
 
-            CreateLabel(panel.transform, "Data type", 32, new Vector2(-260f, y), 300f, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, Loc.T("import.dtype"), 32, new Vector2(-260f, y), 300f, TextAnchor.MiddleLeft);
             formatBtn = CreateButton(panel.transform, Formats[formatIndex].ToString(), new Vector2(0.5f, 0.5f),
                 new Vector2(60f, y), new Vector2(240f, 80f), CycleFormat);
             endianBtn = CreateButton(panel.transform, EndianLabel(), new Vector2(0.5f, 0.5f),
                 new Vector2(330f, y), new Vector2(160f, 80f), CycleEndian);
             y -= 100f;
-            CreateButton(panel.transform, "Pick RAW file…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+            CreateButton(panel.transform, Loc.T("import.pick_raw"), new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(700f, 100f), PickRaw);
             y -= 120f;
 
-            CreateLabel(panel.transform, "— or DICOM (.zip, uncompressed) —", 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, Loc.T("import.or_dicom"), 28, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 80f;
-            CreateButton(panel.transform, "Pick DICOM (.zip)…", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+            CreateButton(panel.transform, Loc.T("import.pick_dicom"), new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(700f, 100f), PickDicom);
             y -= 120f;
 
             statusText = CreateLabel(panel.transform, "", 26, new Vector2(0f, y), 820f, TextAnchor.MiddleCenter);
             y -= 70f;
-            CreateButton(panel.transform, "Cancel", new Vector2(0.5f, 0.5f), new Vector2(0f, y),
+            CreateButton(panel.transform, Loc.T("import.cancel"), new Vector2(0.5f, 0.5f), new Vector2(0f, y),
                 new Vector2(300f, 90f), () => SetPanelVisible(false));
         }
 
@@ -139,12 +156,12 @@ namespace SliceAR
         {
             if (NativeFilePicker.IsFilePickerBusy())
                 return;
-            SetStatus("Opening picker…");
+            SetStatus(Loc.T("import.opening"));
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path))
                 {
-                    SetStatus("Cancelled.");
+                    SetStatus(Loc.T("import.cancelled"));
                     return;
                 }
                 VolumeImportRequest.Clear();
@@ -160,12 +177,12 @@ namespace SliceAR
         {
             if (NativeFilePicker.IsFilePickerBusy())
                 return;
-            SetStatus("Opening picker…");
+            SetStatus(Loc.T("import.opening"));
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path))
                 {
-                    SetStatus("Cancelled.");
+                    SetStatus(Loc.T("import.cancelled"));
                     return;
                 }
                 VolumeImportRequest.Clear();
@@ -187,12 +204,12 @@ namespace SliceAR
         {
             if (NativeFilePicker.IsFilePickerBusy())
                 return;
-            SetStatus("Opening picker…");
+            SetStatus(Loc.T("import.opening"));
             NativeFilePicker.PickFile(path =>
             {
                 if (string.IsNullOrEmpty(path))
                 {
-                    SetStatus("Cancelled.");
+                    SetStatus(Loc.T("import.cancelled"));
                     return;
                 }
                 VolumeImportRequest.Clear();
@@ -206,7 +223,7 @@ namespace SliceAR
 
         private void ReloadScene()
         {
-            SetStatus("Loading…");
+            SetStatus(Loc.T("import.loading"));
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 

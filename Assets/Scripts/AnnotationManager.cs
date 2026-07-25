@@ -50,10 +50,22 @@ namespace SliceAR
         // limits how many can be chained into one polyline so the on-screen path stays readable.
         private const int MaxPathPoints = 30;
 
+        private void OnEnable()  { Loc.LanguageChanged += RefreshTexts; }
+        private void OnDisable() { Loc.LanguageChanged -= RefreshTexts; }
+
         private void Start()
         {
             cam = Camera.main;
             BuildUI();
+        }
+
+        // Re-render the control labels (and re-pick a glyph-appropriate font) after a language change.
+        private void RefreshTexts()
+        {
+            if (addBtn != null)       { addBtn.font = AppFont.Get(); addBtn.text = Loc.T("annot.marker"); }
+            if (measureBtn != null)   { measureBtn.font = AppFont.Get(); measureBtn.text = Loc.T("annot.measure"); }
+            if (deleteBtn != null)    { deleteBtn.font = AppFont.Get(); deleteBtn.text = Loc.T("annot.delete"); }
+            if (measureLabel != null) measureLabel.font = AppFont.Get();
         }
 
         private void Update()
@@ -228,7 +240,7 @@ namespace SliceAR
             var labelGO = new GameObject("Label_" + a.id);
             labelGO.transform.SetParent(markerRoot, false);
             var label = labelGO.AddComponent<Text>();
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = AppFont.Get();
             label.fontSize = 34;
             label.fontStyle = FontStyle.Bold;
             label.alignment = TextAnchor.MiddleLeft;
@@ -325,7 +337,8 @@ namespace SliceAR
 
             measureLabel.gameObject.SetActive(true);
             measureLabel.rectTransform.position = new Vector3(centroid.x, centroid.y + 34f, 0f);
-            measureLabel.text = totalMm.ToString("0.0") + " mm" + (n > 2 ? "  (" + (n - 1) + " segs)" : "");
+            measureLabel.text = totalMm.ToString("0.0") + " mm"
+                + (n > 2 ? "  (" + (n - 1) + " " + Loc.T("annot.segs") + ")" : "");
         }
 
         // Pooled polyline segment images (reused across frames; grown on demand).
@@ -441,7 +454,7 @@ namespace SliceAR
 
             measureLabel = new GameObject("MeasureLabel").AddComponent<Text>();
             measureLabel.transform.SetParent(markerRoot, false);
-            measureLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            measureLabel.font = AppFont.Get();
             measureLabel.fontSize = 40;
             measureLabel.fontStyle = FontStyle.Bold;
             measureLabel.alignment = TextAnchor.MiddleCenter;
@@ -464,13 +477,13 @@ namespace SliceAR
             // Bottom-left stack, narrow enough to clear the centre Mode/Recenter column.
             addBtn = MakeButton(bcGO.transform, "AddMarkerBtn", new Vector2(16f, 40f),
                 new Vector2(290f, 130f), OnToggleAdd);
-            addBtn.text = "＋ Marker";
+            addBtn.text = Loc.T("annot.marker");
             measureBtn = MakeButton(bcGO.transform, "MeasureBtn", new Vector2(16f, 190f),
                 new Vector2(290f, 130f), OnToggleMeasure);
-            measureBtn.text = "Measure";
+            measureBtn.text = Loc.T("annot.measure");
             deleteBtn = MakeButton(bcGO.transform, "DeleteBtn", new Vector2(16f, 340f),
                 new Vector2(290f, 130f), OnDelete);
-            deleteBtn.text = "Delete";
+            deleteBtn.text = Loc.T("annot.delete");
 
             renameField = MakeInputField(bcGO.transform, new Vector2(16f, 490f), new Vector2(290f, 110f));
             renameField.gameObject.SetActive(false);
@@ -507,7 +520,7 @@ namespace SliceAR
             var txtGO = new GameObject("Label");
             txtGO.transform.SetParent(btnGO.transform, false);
             var text = txtGO.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 42;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
@@ -537,7 +550,7 @@ namespace SliceAR
             var textGO = new GameObject("Text");
             textGO.transform.SetParent(go.transform, false);
             var text = textGO.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = AppFont.Get();
             text.fontSize = 40;
             text.color = Color.white;
             text.supportRichText = false;
