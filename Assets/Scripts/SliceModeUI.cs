@@ -21,6 +21,7 @@ namespace SliceAR
         private Text langLabel;         // top-right: cycle the UI language
         private Text shadingLabel;      // top-right: toggle gradient (normal-based) shading
         private Text recenterLabel;     // bottom-centre: recenter (kept for language refresh)
+        private SliceController.SliceMode? shownMode;   // last mode rendered on the Mode button
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
         // patient direction (R/L/A/P/S/I) points that way for the slice currently on screen.
@@ -41,6 +42,13 @@ namespace SliceAR
         {
             UpdateOrientationMarkers();
             UpdateAxisLabel();
+            // The 3D scene enters Slice mode only once the volume finishes loading (MotionSlicer.Attach),
+            // and AR's SliceController is added at runtime — both happen after the initial UpdateLabel, so
+            // refresh the Mode label whenever the live mode differs from what's shown (else it reads stale,
+            // e.g. "Mode: Clip" while actually in Slice with the Axis button visible).
+            EnsureController();
+            if (controller != null && shownMode != controller.Mode)
+                UpdateLabel();
         }
 
         private void BuildUI()
@@ -406,6 +414,8 @@ namespace SliceAR
                 label.text = controller != null
                     ? Loc.T("mode") + ": " + Loc.T("mode." + controller.Mode.ToString().ToLowerInvariant())
                     : Loc.T("mode");
+            if (controller != null)
+                shownMode = controller.Mode;
         }
 
         private void EnsureController()
