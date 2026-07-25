@@ -26,20 +26,12 @@ namespace SliceAR
         private GameObject anchorGO;
         private Transform camT;
 
-        // True once the AR scene has been entered at least once this app run. The very first entry is the
-        // clean startup path (XR auto-initialised); only later re-entries (after visiting the 3D scene) need
-        // the XR restart below.
-        private static bool arEnteredBefore;
-
         private IEnumerator Start()
         {
-            // Re-entering AR after the 3D scene leaves the previous run's XR subsystems in a stale state:
-            // the camera passthrough stays black and the device pose freezes (so the slice/cut sit static).
-            // Restart the XR loader to get a fresh camera + tracking session. Skip on the first (startup)
-            // entry, which is already clean, to avoid disturbing the known-good path.
-            if (arEnteredBefore)
-                yield return RestartXR();
-            arEnteredBefore = true;
+            // AR-only on-screen diagnostic (session state / tracking / camera-frame count) so we can see
+            // what's stuck when re-entering AR from the 3D scene. Harmless if it can't find the rig.
+            if (GetComponent<ARDiagnosticUI>() == null)
+                gameObject.AddComponent<ARDiagnosticUI>();
 
             VolumeRenderedObject volume = null;
 
@@ -128,38 +120,6 @@ namespace SliceAR
             if (camT == null)
                 camT = Camera.main != null ? Camera.main.transform : null;
             AnchorInFront();
-        }
-
-        /// <summary>
-        /// Restart the XR loader so a fresh AR camera + tracking session comes up on a scene re-entry.
-        /// The ARSession is disabled first so it releases the subsystems before the loader is torn down,
-        /// then re-enabled and reset once the loader is running again. Only called on AR re-entry.
-        /// </summary>
-        private IEnumerator RestartXR()
-        {
-            var session = Object.FindObjectOfType<ARSession>();
-            if (session != null)
-                session.enabled = false;   // let the session release the camera/tracking subsystems first
-
-            var settings = UnityEngine.XR.Management.XRGeneralSettings.Instance;
-            var manager = settings != null ? settings.Manager : null;
-            if (manager != null)
-            {
-                if (manager.isInitializationComplete)
-                {
-                    manager.StopSubsystems();
-                    manager.DeinitializeLoader();
-                }
-                yield return manager.InitializeLoader();
-                manager.StartSubsystems();
-            }
-
-            if (session != null)
-            {
-                session.enabled = true;
-                session.Reset();           // discard stale tracking/anchors from the previous session
-            }
-            yield return null;             // give the fresh session a frame to start producing poses
         }
     }
 }
