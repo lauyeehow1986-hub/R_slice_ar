@@ -105,6 +105,26 @@ namespace SliceAR
             ApplyModeVisibility();
         }
 
+        /// <summary>
+        /// Apply a transfer function to the volume AND to the flat slice plane. UVR's
+        /// <c>SetTransferFunction</c> only rebinds the volume's own material (used by the Clip cut-away
+        /// DVR and the AR render), so the slice plane — whose material caches the TF texture from when it
+        /// was created — must be refreshed separately, or a runtime LUT change never reaches Slice mode.
+        /// </summary>
+        public void SetTransferFunction(UnityVolumeRendering.TransferFunction tf)
+        {
+            if (tf == null)
+                return;
+            if (volume != null)
+                volume.SetTransferFunction(tf);
+            if (slicingPlane != null)
+            {
+                var smr = slicingPlane.GetComponent<MeshRenderer>();
+                if (smr != null && smr.sharedMaterial != null)
+                    smr.sharedMaterial.SetTexture("_TFTex", tf.GetTexture());
+            }
+        }
+
         /// <summary>Place the active slicing representation at the given world pose.</summary>
         public void ApplyPose(Vector3 position, Quaternion rotation)
         {

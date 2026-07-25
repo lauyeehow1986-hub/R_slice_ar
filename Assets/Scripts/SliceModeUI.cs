@@ -111,9 +111,18 @@ namespace SliceAR
             var values = (ColorLUT[])System.Enum.GetValues(typeof(ColorLUT));
             VolumeSession.ColorLUT = values[(((int)VolumeSession.ColorLUT) + 1) % values.Length];
 
-            var vol = Object.FindObjectOfType<UnityVolumeRendering.VolumeRenderedObject>();
-            if (vol != null)
-                vol.SetTransferFunction(TransferFunctions.Build(VolumeSession.WindowPreset, VolumeSession.ColorLUT));
+            var tf = TransferFunctions.Build(VolumeSession.WindowPreset, VolumeSession.ColorLUT);
+            // Route through the controller so the flat slice plane's TF texture is refreshed too, not
+            // just the volume material (otherwise the LUT never changes in Slice mode).
+            EnsureController();
+            if (controller != null)
+                controller.SetTransferFunction(tf);
+            else
+            {
+                var vol = Object.FindObjectOfType<UnityVolumeRendering.VolumeRenderedObject>();
+                if (vol != null)
+                    vol.SetTransferFunction(tf);
+            }
             UpdateLutLabel();
         }
 
