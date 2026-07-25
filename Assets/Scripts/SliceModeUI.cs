@@ -19,6 +19,7 @@ namespace SliceAR
         private Text sceneSwitchLabel;  // top-right: switch between the AR and 3D scenes
         private Text lutLabel;          // top-right: cycle the colour LUT (transfer-function palette)
         private Text langLabel;         // top-right: cycle the UI language
+        private Text shadingLabel;      // top-right: toggle gradient (normal-based) shading
         private Text recenterLabel;     // bottom-centre: recenter (kept for language refresh)
 
         // Anatomical orientation markers (DICOM only): one label per screen edge showing which
@@ -120,6 +121,19 @@ namespace SliceAR
             langLabel.fontSize = 34;
             langLabel.text = Loc.DisplayName(Loc.Current);
 
+            // Gradient-shading toggle (top-right, below the language button): normal-based lighting on the
+            // 3D volume (Clip mode / AR). Choice held in VolumeSession so it survives scene switches.
+            shadingLabel = MakeButton(canvasGO.transform, "ShadingButton",
+                Vector2.zero, new Vector2(320f, 120f), OnToggleShading);
+            var shrt = shadingLabel.transform.parent.GetComponent<RectTransform>();
+            shrt.anchorMin = shrt.anchorMax = new Vector2(1f, 1f);
+            shrt.pivot = new Vector2(1f, 1f);
+            shrt.anchoredPosition = new Vector2(-40f, -570f);
+            var shimg = shadingLabel.transform.parent.GetComponent<Image>();
+            if (shimg != null) shimg.color = new Color(0.40f, 0.30f, 0.15f, 0.85f);
+            shadingLabel.fontSize = 34;
+            UpdateShadingLabel();
+
             // The "not for diagnosis" disclaimer is required in-app; add its self-contained UI here so
             // no scene wiring is needed (shows once per launch + a persistent footer).
             if (GetComponent<DisclaimerUI>() == null)
@@ -158,6 +172,23 @@ namespace SliceAR
             lutLabel.text = "LUT: " + Loc.T("lut." + VolumeSession.ColorLUT.ToString().ToLowerInvariant());
         }
 
+        private void OnToggleShading()
+        {
+            VolumeSession.GradientShading = !VolumeSession.GradientShading;
+            EnsureController();
+            if (controller != null)
+                controller.SetShading(VolumeSession.GradientShading);
+            UpdateShadingLabel();
+        }
+
+        private void UpdateShadingLabel()
+        {
+            if (shadingLabel == null)
+                return;
+            shadingLabel.text = Loc.T("shading") + ": " +
+                Loc.T(VolumeSession.GradientShading ? "state.on" : "state.off");
+        }
+
         private void OnCycleLanguage()
         {
             // Fires Loc.LanguageChanged, which routes back into RefreshTexts (this component is subscribed)
@@ -170,6 +201,7 @@ namespace SliceAR
         {
             if (recenterLabel != null) { recenterLabel.font = AppFont.Get(); recenterLabel.text = Loc.T("recenter"); }
             if (langLabel != null)     { langLabel.font = AppFont.Get(); langLabel.text = Loc.DisplayName(Loc.Current); }
+            if (shadingLabel != null)  { shadingLabel.font = AppFont.Get(); UpdateShadingLabel(); }
             if (label != null)      label.font = AppFont.Get();
             if (axisLabel != null)  axisLabel.font = AppFont.Get();
             if (sceneSwitchLabel != null) sceneSwitchLabel.font = AppFont.Get();

@@ -119,6 +119,23 @@ namespace SliceAR
             }
 
             ApplyModeVisibility();
+            SetShading(VolumeSession.GradientShading);   // carry the choice across scene reloads
+        }
+
+        /// <summary>
+        /// Enable/disable gradient (normal-based) lighting on the 3D direct volume render. Uses a camera
+        /// headlight (<see cref="UnityVolumeRendering.LightSource.ActiveCamera"/>) so it needs no scene light
+        /// and behaves the same in 3D and AR. Only affects the DVR (Clip mode / the AR volume); the flat
+        /// Slice image is unlit by design. The lit shader variant is a <c>multi_compile</c>, so it always
+        /// ships in the build (no variant-collection needed). The gradient texture is generated on first
+        /// enable (async in UVR), so the very first toggle-on may take a moment on device.
+        /// </summary>
+        public void SetShading(bool enabled)
+        {
+            if (volume == null)
+                return;
+            volume.SetLightSource(UnityVolumeRendering.LightSource.ActiveCamera);
+            volume.SetLightingEnabled(enabled);
         }
 
         /// <summary>

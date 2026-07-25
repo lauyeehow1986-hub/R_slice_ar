@@ -255,6 +255,21 @@ namespace SliceAR
                 "பிரிவு",           // TA
             },
 
+            // --- Shading toggle -----------------------------------------------------------------------
+            ["shading"] = new[]
+            {
+                "Shading", "Ombreggiatura", "Sombreado", "Schattierung",
+                "シェーディング", "Ombrage", "着色", "Bayang", "நிழலூட்டல்",
+            },
+            ["state.on"] = new[]
+            {
+                "On", "On", "On", "An", "オン", "On", "开", "Hidup", "இயக்கு",
+            },
+            ["state.off"] = new[]
+            {
+                "Off", "Off", "Off", "Aus", "オフ", "Off", "关", "Mati", "அணை",
+            },
+
             // --- Disclaimer ---------------------------------------------------------------------------
             ["disclaimer.ack"] = new[]
             {

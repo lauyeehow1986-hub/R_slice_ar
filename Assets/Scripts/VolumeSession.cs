@@ -48,6 +48,10 @@ namespace SliceAR
         /// (not persisted) so the disclaimer shows once per app launch but not on every scene switch.</summary>
         public static bool DisclaimerAcknowledged;
 
+        /// <summary>Whether gradient (normal-based) lighting is enabled on the 3D volume render. Static so
+        /// the choice persists across the scene reload an import / AR↔3D switch performs.</summary>
+        public static bool GradientShading;
+
         /// <summary>Stable identifier for the loaded dataset (bundled file name, or an import's file
         /// name). Annotations are stored/loaded keyed by this so each dataset keeps its own markers.</summary>
         public static string DatasetId = "default";
