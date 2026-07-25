@@ -28,11 +28,6 @@ namespace SliceAR
 
         private IEnumerator Start()
         {
-            // AR-only on-screen diagnostic (session state / tracking / camera-frame count) so we can see
-            // what's stuck when re-entering AR from the 3D scene. Harmless if it can't find the rig.
-            if (GetComponent<ARDiagnosticUI>() == null)
-                gameObject.AddComponent<ARDiagnosticUI>();
-
             VolumeRenderedObject volume = null;
 
             var loader = GetComponent<VolumeFileLoader>();
