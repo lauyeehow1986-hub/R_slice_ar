@@ -77,6 +77,10 @@ namespace SliceAR
             if (slicer == null)
                 slicer = gameObject.AddComponent<ARSlicer>();
             slicer.Attach(volume, camT);
+
+            // Edge arrow pointing back to the anchored volume once the user moves away from it.
+            if (GetComponent<ARVolumeIndicator>() == null)
+                gameObject.AddComponent<ARVolumeIndicator>();
         }
 
         /// <summary>
