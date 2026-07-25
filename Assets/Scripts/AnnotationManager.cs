@@ -40,11 +40,15 @@ namespace SliceAR
 
         private Canvas markerCanvas;   // raw-pixel canvas for dots/labels/measure line
         private RectTransform markerRoot;
-        private Image measureLine;
+        private readonly List<Image> segmentPool = new List<Image>();   // polyline segments (pooled)
         private Text measureLabel;
 
         private Text addBtn, measureBtn, deleteBtn;
         private InputField renameField;
+
+        // Cap on points in a single measurement path. Total markers per dataset are unlimited; this only
+        // limits how many can be chained into one polyline so the on-screen path stays readable.
+        private const int MaxPathPoints = 30;
 
         private void Start()
         {
@@ -173,8 +177,8 @@ namespace SliceAR
             else
             {
                 selected.Add(id);
-                // Measure needs at most two; View keeps a single selection.
-                int max = mode == Mode.Measure ? 2 : 1;
+                // Measure chains an ordered path (up to MaxPathPoints); View keeps a single selection.
+                int max = mode == Mode.Measure ? MaxPathPoints : 1;
                 while (selected.Count > max)
                     selected.RemoveAt(0);
             }
@@ -260,42 +264,89 @@ namespace SliceAR
             }
         }
 
+        // Draw the measurement polyline through the selected markers (in selection order) and show the
+        // total path length in mm — the sum of the straight segments (a piecewise-linear approximation of
+        // a curved path; add more points to follow a curve more closely). Two points = a single straight
+        // segment (the original behaviour).
         private void UpdateMeasure()
         {
-            bool show = mode == Mode.Measure && selected.Count == 2;
-            measureLine.gameObject.SetActive(show);
-            measureLabel.gameObject.SetActive(show);
-            if (!show)
-                return;
-
-            Annotation a = Find(selected[0]);
-            Annotation b = Find(selected[1]);
-            if (a == null || b == null)
-                return;
-
-            Vector3 sa = cam.WorldToScreenPoint(container.TransformPoint(a.localPos));
-            Vector3 sb = cam.WorldToScreenPoint(container.TransformPoint(b.localPos));
-            if (sa.z <= 0f || sb.z <= 0f)
+            int n = mode == Mode.Measure ? selected.Count : 0;
+            if (n < 2)
             {
-                measureLine.gameObject.SetActive(false);
+                HideSegmentsFrom(0);
                 measureLabel.gameObject.SetActive(false);
                 return;
             }
 
-            Vector2 pa = new Vector2(sa.x, sa.y);
-            Vector2 pb = new Vector2(sb.x, sb.y);
-            Vector2 mid = (pa + pb) * 0.5f;
-            Vector2 dir = pb - pa;
-            float len = dir.magnitude;
+            // Screen positions of the path points; if any is behind the camera, hide the whole path.
+            var screen = new Vector2[n];
+            for (int i = 0; i < n; i++)
+            {
+                var a = Find(selected[i]);
+                if (a == null)
+                {
+                    HideSegmentsFrom(0);
+                    measureLabel.gameObject.SetActive(false);
+                    return;
+                }
+                Vector3 s = cam.WorldToScreenPoint(container.TransformPoint(a.localPos));
+                if (s.z <= 0f)
+                {
+                    HideSegmentsFrom(0);
+                    measureLabel.gameObject.SetActive(false);
+                    return;
+                }
+                screen[i] = new Vector2(s.x, s.y);
+            }
 
-            measureLine.rectTransform.position = new Vector3(mid.x, mid.y, 0f);
-            measureLine.rectTransform.sizeDelta = new Vector2(len, 4f);
-            measureLine.rectTransform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+            float totalMm = 0f;
+            Vector2 centroid = Vector2.zero;
+            for (int i = 0; i < n - 1; i++)
+            {
+                Vector2 pa = screen[i];
+                Vector2 pb = screen[i + 1];
+                Vector2 mid = (pa + pb) * 0.5f;
+                Vector2 dir = pb - pa;
 
-            Vector3 dLocal = a.localPos - b.localPos;
-            Vector3 mm = Vector3.Scale(dLocal, VolumeSession.PhysicalSizeMm);
-            measureLabel.rectTransform.position = new Vector3(mid.x, mid.y + 30f, 0f);
-            measureLabel.text = mm.magnitude.ToString("0.0") + " mm";
+                Image seg = GetSegment(i);
+                seg.gameObject.SetActive(true);
+                seg.rectTransform.position = new Vector3(mid.x, mid.y, 0f);
+                seg.rectTransform.sizeDelta = new Vector2(dir.magnitude, 4f);
+                seg.rectTransform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+
+                Vector3 dLocal = Find(selected[i]).localPos - Find(selected[i + 1]).localPos;
+                totalMm += Vector3.Scale(dLocal, VolumeSession.PhysicalSizeMm).magnitude;
+            }
+            HideSegmentsFrom(n - 1);
+
+            foreach (var p in screen)
+                centroid += p;
+            centroid /= n;
+
+            measureLabel.gameObject.SetActive(true);
+            measureLabel.rectTransform.position = new Vector3(centroid.x, centroid.y + 34f, 0f);
+            measureLabel.text = totalMm.ToString("0.0") + " mm" + (n > 2 ? "  (" + (n - 1) + " segs)" : "");
+        }
+
+        // Pooled polyline segment images (reused across frames; grown on demand).
+        private Image GetSegment(int i)
+        {
+            while (segmentPool.Count <= i)
+            {
+                var seg = new GameObject("Seg_" + segmentPool.Count).AddComponent<Image>();
+                seg.transform.SetParent(markerRoot, false);
+                seg.color = new Color(0.3f, 1f, 0.5f, 0.9f);
+                seg.raycastTarget = false;
+                segmentPool.Add(seg);
+            }
+            return segmentPool[i];
+        }
+
+        private void HideSegmentsFrom(int from)
+        {
+            for (int i = from; i < segmentPool.Count; i++)
+                if (segmentPool[i] != null)
+                    segmentPool[i].gameObject.SetActive(false);
         }
 
         // ---- UI buttons -------------------------------------------------------------------------------
@@ -387,11 +438,6 @@ namespace SliceAR
             markerRoot.anchorMax = Vector2.one;
             markerRoot.offsetMin = Vector2.zero;
             markerRoot.offsetMax = Vector2.zero;
-
-            measureLine = new GameObject("MeasureLine").AddComponent<Image>();
-            measureLine.transform.SetParent(markerRoot, false);
-            measureLine.color = new Color(0.3f, 1f, 0.5f, 0.9f);
-            measureLine.gameObject.SetActive(false);
 
             measureLabel = new GameObject("MeasureLabel").AddComponent<Text>();
             measureLabel.transform.SetParent(markerRoot, false);
