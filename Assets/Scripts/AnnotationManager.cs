@@ -461,18 +461,18 @@ namespace SliceAR
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             bcGO.AddComponent<GraphicRaycaster>();
 
-            // Bottom-left stack.
-            addBtn = MakeButton(bcGO.transform, "AddMarkerBtn", new Vector2(40f, 40f),
-                new Vector2(320f, 130f), OnToggleAdd);
+            // Bottom-left stack, narrow enough to clear the centre Mode/Recenter column.
+            addBtn = MakeButton(bcGO.transform, "AddMarkerBtn", new Vector2(16f, 40f),
+                new Vector2(290f, 130f), OnToggleAdd);
             addBtn.text = "＋ Marker";
-            measureBtn = MakeButton(bcGO.transform, "MeasureBtn", new Vector2(40f, 190f),
-                new Vector2(320f, 130f), OnToggleMeasure);
+            measureBtn = MakeButton(bcGO.transform, "MeasureBtn", new Vector2(16f, 190f),
+                new Vector2(290f, 130f), OnToggleMeasure);
             measureBtn.text = "Measure";
-            deleteBtn = MakeButton(bcGO.transform, "DeleteBtn", new Vector2(40f, 340f),
-                new Vector2(320f, 130f), OnDelete);
+            deleteBtn = MakeButton(bcGO.transform, "DeleteBtn", new Vector2(16f, 340f),
+                new Vector2(290f, 130f), OnDelete);
             deleteBtn.text = "Delete";
 
-            renameField = MakeInputField(bcGO.transform, new Vector2(40f, 490f), new Vector2(320f, 110f));
+            renameField = MakeInputField(bcGO.transform, new Vector2(16f, 490f), new Vector2(290f, 110f));
             renameField.gameObject.SetActive(false);
 
             RefreshButtons();

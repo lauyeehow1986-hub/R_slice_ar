@@ -54,18 +54,19 @@ namespace SliceAR
                 es.AddComponent<InputSystemUIInputModule>();
             }
 
-            // Mode toggle, bottom-centre.
+            // Mode toggle, bottom-centre. Kept narrower than the screen so the annotation controls have
+            // clear space in the bottom-left corner (they used to overlap the wider buttons).
             label = MakeButton(canvasGO.transform, "ModeButton",
-                new Vector2(0f, 140f), new Vector2(560f, 160f), OnClick);
+                new Vector2(0f, 140f), new Vector2(420f, 160f), OnClick);
 
             // Recenter, bottom-centre just above the mode button — sets the current tilt as the
             // mid-stack neutral and clears accumulated sensor drift.
             MakeButton(canvasGO.transform, "RecenterButton",
-                new Vector2(0f, 320f), new Vector2(560f, 140f), OnRecenter).text = "Recenter";
+                new Vector2(0f, 320f), new Vector2(420f, 140f), OnRecenter).text = "Recenter";
 
             // Axis cycle (Axial/Coronal/Sagittal), above Recenter.
             axisLabel = MakeButton(canvasGO.transform, "AxisButton",
-                new Vector2(0f, 480f), new Vector2(560f, 140f), OnCycleAxis);
+                new Vector2(0f, 480f), new Vector2(420f, 140f), OnCycleAxis);
 
             // Anatomical edge markers (hidden until a DICOM slice is on screen).
             markTop    = MakeEdgeLabel(canvasGO.transform, "MarkTop",    new Vector2(0.5f, 1f), new Vector2(0f, -110f));
@@ -287,9 +288,14 @@ namespace SliceAR
 
         private void OnRecenter()
         {
+            // 3D: reset the tilt neutral (mid-stack). AR: re-anchor the volume back in front of the user.
             EnsureMotionSlicer();
             if (motionSlicer != null)
                 motionSlicer.Recenter();
+
+            var arController = Object.FindObjectOfType<ARModeController>();
+            if (arController != null)
+                arController.Recenter();
         }
 
         private void OnCycleAxis()
