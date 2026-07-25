@@ -114,6 +114,7 @@ namespace SliceAR
                 var kind = VolumeImportRequest.kind;
                 voxelSizeMm = VolumeImportRequest.voxelSizeMm;
                 transferFunctionPreset = VolumeImportRequest.tfPreset;
+                VolumeSession.DatasetId = ImportDatasetId(kind);
                 VolumeSession.IsDicomOriented = kind == VolumeImportRequest.Kind.Dicom;
                 // DICOM (and, as a best guess, imported RAW/image sequences) follow the importer's
                 // +X=Left, +Y=Posterior, +Z=Superior convention.
@@ -146,6 +147,7 @@ namespace SliceAR
             }
             else
             {
+                VolumeSession.DatasetId = fileName;
                 VolumeSession.IsDicomOriented = false;   // bundled RAW has no orientation metadata
                 // The bundled MRHead is a sagittal T1 acquisition: its grid is dataset X=anterior/
                 // posterior, Y=superior/inferior, Z=left/right — not the importer convention. Map the
@@ -165,6 +167,12 @@ namespace SliceAR
             dataset.RecalculateBounds();
             if (!importerProvidedScale)
                 ApplyVoxelSize(dataset);
+
+            // Physical extent (mm) of the dataset, for turning marker separations into real distances.
+            VolumeSession.PhysicalSizeMm = new Vector3(
+                dataset.dimX * Mathf.Max(voxelSizeMm.x, 1e-4f),
+                dataset.dimY * Mathf.Max(voxelSizeMm.y, 1e-4f),
+                dataset.dimZ * Mathf.Max(voxelSizeMm.z, 1e-4f));
 
             // Build the rendered object, then apply the transfer function. The TF is cosmetic (the
             // volume renders fine without it), so a TF failure must NOT abort the load — otherwise
@@ -189,6 +197,24 @@ namespace SliceAR
 
             spawned = obj;
             onDone(obj);
+        }
+
+        /// <summary>A stable id for an imported dataset, from the source file name, so its annotations
+        /// are keyed consistently across reloads.</summary>
+        private static string ImportDatasetId(VolumeImportRequest.Kind kind)
+        {
+            string src;
+            switch (kind)
+            {
+                case VolumeImportRequest.Kind.ImageSequence:
+                    src = VolumeImportRequest.imageZipPath; break;
+                case VolumeImportRequest.Kind.Dicom:
+                    src = VolumeImportRequest.dicomZipPath; break;
+                default:
+                    src = VolumeImportRequest.rawPath; break;
+            }
+            string name = string.IsNullOrEmpty(src) ? null : Path.GetFileName(src);
+            return string.IsNullOrEmpty(name) ? "import" : name;
         }
 
         /// <summary>Load the bundled headerless RAW from StreamingAssets (copying out of the APK on Android).</summary>

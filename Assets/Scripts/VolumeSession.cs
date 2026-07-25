@@ -47,5 +47,14 @@ namespace SliceAR
         /// <summary>Whether the user has dismissed the "not for diagnosis" disclaimer this run. Static
         /// (not persisted) so the disclaimer shows once per app launch but not on every scene switch.</summary>
         public static bool DisclaimerAcknowledged;
+
+        /// <summary>Stable identifier for the loaded dataset (bundled file name, or an import's file
+        /// name). Annotations are stored/loaded keyed by this so each dataset keeps its own markers.</summary>
+        public static string DatasetId = "default";
+
+        /// <summary>Full physical extent of the dataset in millimetres (dim × voxel size per axis). Used
+        /// to turn marker separations (measured in the mesh-local unit cube) into a distance in mm. For
+        /// DICOM this depends on the voxel size in effect, which the user can edit on import.</summary>
+        public static Vector3 PhysicalSizeMm = new Vector3(256f, 256f, 169f);
     }
 }

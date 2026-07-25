@@ -72,6 +72,22 @@ namespace SliceAR
         private float orbitYaw = 22f;
         private float orbitPitch = -27f;
 
+        // The world-space plane the user currently sees (position + normal), cached each frame so the
+        // annotation tool can raycast a screen tap onto exactly the slice/cut on screen. Set by
+        // ShowCtSlice (3D) and ApplyPose (AR).
+        private Vector3 activePlanePoint;
+        private Vector3 activePlaneNormal = Vector3.forward;
+        private bool hasActivePlane;
+
+        /// <summary>The plane currently shown on screen (for tap-to-place annotations). Returns false
+        /// until a slice has been positioned at least once.</summary>
+        public bool TryGetActivePlane(out Vector3 point, out Vector3 normal)
+        {
+            point = activePlanePoint;
+            normal = activePlaneNormal;
+            return hasActivePlane;
+        }
+
         /// <param name="showCutIndicator">Keep the cross-section plane's outline visible. AR passes true
         /// (in Clip mode it shows where the cutting plane is as you steer the device through the volume —
         /// aiming feedback); the 3D CT-viewer passes false (there the box just floats confusingly, and the
@@ -128,8 +144,15 @@ namespace SliceAR
         /// <summary>Place the active slicing representation at the given world pose.</summary>
         public void ApplyPose(Vector3 position, Quaternion rotation)
         {
+            // Cache the on-screen plane for tap-to-place annotations: the point is where the active
+            // plane sits, the normal faces the camera (the user taps the face they can see).
+            var mainCam = Camera.main;
+            activePlaneNormal = mainCam != null ? -mainCam.transform.forward : (rotation * Vector3.forward);
+            hasActivePlane = true;
+
             if (Mode == SliceMode.Clip)
             {
+                activePlanePoint = position;
                 if (crossSection != null)
                     crossSection.transform.SetPositionAndRotation(position, rotation * Quaternion.Euler(clipOffsetEuler));
             }
@@ -145,6 +168,7 @@ namespace SliceAR
                     Vector3 slicePos = (anchorSliceAtVolumeCentre && volume != null)
                         ? VolumeCentre()
                         : position;
+                    activePlanePoint = slicePos;
                     slicingPlane.transform.SetPositionAndRotation(slicePos, rotation * Quaternion.Euler(sliceOffsetEuler));
                 }
             }
@@ -197,6 +221,11 @@ namespace SliceAR
             Vector3 centre = VolumeCentre();
             float half = 0.9f * HalfExtentAlong(normal);
             Vector3 slicePos = centre + normal * Mathf.Lerp(-half, half, Mathf.Clamp01(depth01));
+
+            // Cache the on-screen plane for tap-to-place annotations.
+            activePlanePoint = slicePos;
+            activePlaneNormal = normal;
+            hasActivePlane = true;
 
             // Orient the slice quad. UVR's SliceRenderingShader samples the volume on the plane's local
             // XZ plane while the quad is drawn in local XY, so a 90° rotation about X is required to put

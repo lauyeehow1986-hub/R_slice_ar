@@ -104,6 +104,10 @@ namespace SliceAR
             // no scene wiring is needed (shows once per launch + a persistent footer).
             if (GetComponent<DisclaimerUI>() == null)
                 gameObject.AddComponent<DisclaimerUI>();
+
+            // Annotation tool (markers + measurement) — self-contained, finds the volume itself.
+            if (GetComponent<AnnotationManager>() == null)
+                gameObject.AddComponent<AnnotationManager>();
         }
 
         private void OnCycleLut()
