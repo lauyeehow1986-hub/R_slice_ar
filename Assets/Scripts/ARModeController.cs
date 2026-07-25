@@ -71,7 +71,7 @@ namespace SliceAR
 
             camT = Camera.main != null ? Camera.main.transform : null;
             anchoredVolume = volume;
-            AnchorInFront();
+            yield return AnchorInFrontRoutine();
 
             var slicer = gameObject.GetComponent<ARSlicer>();
             if (slicer == null)
@@ -84,31 +84,54 @@ namespace SliceAR
         }
 
         /// <summary>
-        /// (Re)anchor the volume a short distance in front of the camera. Attaching it to an ARAnchor keeps
-        /// ARCore correcting its pose in lock-step with the world so it doesn't drift; a raw world position
-        /// slides "by itself" as ARCore refines its map. A fresh anchor is created each call (an existing
-        /// anchor's pose is owned by the AR subsystem and shouldn't be moved by hand), replacing the old one.
-        /// Needs an enabled ARAnchorManager on the XR Origin (present in the AR scene).
+        /// (Re)anchor the volume a short distance in front of the camera. A proper <see cref="ARAnchor"/> is
+        /// what keeps ARCore correcting the pose in lock-step with the world; content left at a raw world
+        /// position slides "by itself" whenever ARCore refines its map (the occasional drift after moving
+        /// around a lot). A fresh anchor is created each call — an existing anchor's pose is owned by the AR
+        /// subsystem and must not be moved by hand — replacing the previous one.
+        ///
+        /// Created via <see cref="ARAnchorManager.TryAddAnchorAsync"/>: adding an ARAnchor component to a
+        /// GameObject at runtime is the discouraged path, and silently leaves the anchor unregistered (so it
+        /// never actually tracks) if the manager isn't ready yet. Falls back to that older path only if the
+        /// async request is unavailable or fails, so anchoring still happens either way.
         /// </summary>
-        private void AnchorInFront()
+        private IEnumerator AnchorInFrontRoutine()
         {
             if (anchoredVolume == null)
-                return;
+                yield break;
 
             Vector3 anchorPos = camT != null
                 ? camT.position + camT.forward * anchorDistance
                 : Vector3.forward * anchorDistance;
+            var pose = new Pose(anchorPos, Quaternion.identity);
 
-            var newAnchor = new GameObject("VolumeAnchor");
-            newAnchor.transform.SetPositionAndRotation(anchorPos, Quaternion.identity);
-            newAnchor.AddComponent<ARAnchor>();
+            GameObject newAnchor = null;
+            var manager = Object.FindObjectOfType<ARAnchorManager>();
+            if (manager != null && manager.enabled)
+            {
+                var awaiter = manager.TryAddAnchorAsync(pose).GetAwaiter();
+                while (!awaiter.IsCompleted)
+                    yield return null;
+
+                var result = awaiter.GetResult();
+                if (result.status.IsSuccess() && result.value != null)
+                    newAnchor = result.value.gameObject;
+            }
+
+            if (newAnchor == null)
+            {
+                // Fallback: the pre-6.x pattern. Still better than no anchor at all.
+                newAnchor = new GameObject("VolumeAnchor");
+                newAnchor.transform.SetPositionAndRotation(anchorPos, Quaternion.identity);
+                newAnchor.AddComponent<ARAnchor>();
+            }
 
             anchoredVolume.transform.SetParent(newAnchor.transform, false);
             anchoredVolume.transform.localPosition = Vector3.zero;
             anchoredVolume.transform.localRotation = Quaternion.identity;
             anchoredVolume.transform.localScale = Vector3.one * arScale;
 
-            if (anchorGO != null)
+            if (anchorGO != null && anchorGO != newAnchor)
                 Destroy(anchorGO);
             anchorGO = newAnchor;
         }
@@ -118,7 +141,7 @@ namespace SliceAR
         {
             if (camT == null)
                 camT = Camera.main != null ? Camera.main.transform : null;
-            AnchorInFront();
+            StartCoroutine(AnchorInFrontRoutine());   // anchor creation is async, so run it as a coroutine
         }
     }
 }
