@@ -56,10 +56,11 @@ namespace SliceAR
         /// switch — comparing the two modes is the main reason to have it on.</summary>
         public static bool ShowPerfHUD;
 
-        /// <summary>Volume-render cost preset (see <see cref="RenderQuality"/>). Defaults to Medium: the
-        /// 3D cut-away fills the screen and is far too slow at High on a phone, while Medium's 256 ray
-        /// samples are still Nyquist for a 256-cubed volume. Static so it survives the AR↔3D switch.</summary>
-        public static QualityLevel Quality = QualityLevel.Medium;
+        /// <summary>Volume-render cost preset (see <see cref="RenderQuality"/>). Defaults to Low, which is
+        /// the only level that holds the frame cap in the 3D cut-away on device (High 278 ms, Medium 75 ms,
+        /// Low 33 ms). Medium and High remain available for inspecting a still frame, where a slow but
+        /// sharper render is worth waiting for. Static so it survives the AR↔3D switch.</summary>
+        public static QualityLevel Quality = QualityLevel.Low;
 
         /// <summary>Stable identifier for the loaded dataset (bundled file name, or an import's file
         /// name). Annotations are stored/loaded keyed by this so each dataset keeps its own markers.</summary>

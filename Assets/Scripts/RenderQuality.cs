@@ -32,23 +32,32 @@ namespace SliceAR
 
     public static class RenderQuality
     {
-        /// <summary>Sampling-rate multiplier per level. UVR clamps this to its 0.2-2.0 shader range.</summary>
+        /// <summary>
+        /// Sampling-rate multiplier per level. UVR clamps this to its 0.2-2.0 shader range.
+        ///
+        /// Sampling is the more expensive knob to economise on than it first looks. UVR jitters each ray's
+        /// start position to break up banding, and the jitter magnitude scales with step size, so
+        /// under-sampling does not read as stripes -- it reads as grain, and the grain grows as the volume
+        /// is enlarged on screen. Device testing at 0.3 (154 samples, a random offset of ~5.6% of the
+        /// volume extent per ray) was visibly grainy when zoomed in, so Low buys samples back and pays for
+        /// them with resolution instead.
+        /// </summary>
         private static float SamplingFor(QualityLevel level)
         {
             switch (level)
             {
-                case QualityLevel.Low: return 0.3f;
+                case QualityLevel.Low: return 0.45f;
                 case QualityLevel.Medium: return 0.5f;
                 default: return 1f;
             }
         }
 
-        /// <summary>URP render scale per level.</summary>
+        /// <summary>URP render scale per level. Quadratic, so this is where Low takes its cut.</summary>
         private static float RenderScaleFor(QualityLevel level)
         {
             switch (level)
             {
-                case QualityLevel.Low: return 0.6f;
+                case QualityLevel.Low: return 0.5f;
                 case QualityLevel.Medium: return 0.8f;
                 default: return 1f;
             }
