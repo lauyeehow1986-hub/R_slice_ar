@@ -270,6 +270,44 @@ namespace SliceAR
                 "Off", "Off", "Off", "Aus", "オフ", "Off", "关", "Mati", "அணை",
             },
 
+            // --- Render-quality preset ----------------------------------------------------------------
+            ["quality"] = new[]
+            {
+                "Quality", "Qualita", "Calidad", "Qualitat",
+                "画質",                                   // JA
+                "Qualite",
+                "画质",                                   // ZH
+                "Kualiti",
+                "தரம்",                 // TA
+            },
+            ["quality.high"] = new[]
+            {
+                "High", "Alta", "Alta", "Hoch",
+                "高",                                     // JA
+                "Haute",
+                "高",                                     // ZH
+                "Tinggi",
+                "உயர்",             // TA
+            },
+            ["quality.med"] = new[]
+            {
+                "Med", "Media", "Media", "Mittel",
+                "中",                                     // JA
+                "Moyen",
+                "中",                                     // ZH
+                "Sederhana",
+                "நடு",                 // TA
+            },
+            ["quality.low"] = new[]
+            {
+                "Low", "Bassa", "Baja", "Niedrig",
+                "低",                                     // JA
+                "Basse",
+                "低",                                     // ZH
+                "Rendah",
+                "குறை",             // TA
+            },
+
             // --- AR tracking quality hints ------------------------------------------------------------
             // Shown when ARCore reports it cannot track: these are the conditions that make an anchored
             // volume drift or jump, and each names the action the user can actually take.

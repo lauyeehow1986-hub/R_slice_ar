@@ -120,6 +120,14 @@ namespace SliceAR
 
             ApplyModeVisibility();
             SetShading(VolumeSession.GradientShading);   // carry the choice across scene reloads
+            ApplyRenderQuality();
+        }
+
+        /// <summary>Push the current <see cref="VolumeSession.Quality"/> preset onto the volume. Called at
+        /// setup and whenever the user cycles the setting.</summary>
+        public void ApplyRenderQuality()
+        {
+            RenderQuality.Apply(volume);
         }
 
         /// <summary>

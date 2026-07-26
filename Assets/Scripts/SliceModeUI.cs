@@ -21,6 +21,7 @@ namespace SliceAR
         private Text langLabel;         // top-right: cycle the UI language
         private Text shadingLabel;      // top-right: toggle gradient (normal-based) shading
         private Text perfLabel;         // top-right: toggle the on-device frame-time readout
+        private Text qualityLabel;      // top-right: cycle the volume-render cost preset
         private Text recenterLabel;     // bottom-centre: recenter (kept for language refresh)
         private SliceController.SliceMode? shownMode;   // last mode rendered on the Mode button
 
@@ -156,6 +157,19 @@ namespace SliceAR
             perfLabel.fontSize = 34;
             UpdatePerfLabel();
 
+            // Render-quality preset (top-right, below the FPS toggle). Trades raymarch samples and render
+            // resolution for frame rate — the 3D cut-away is fill-rate bound and needs it (see RenderQuality).
+            qualityLabel = MakeButton(canvasGO.transform, "QualityButton",
+                Vector2.zero, new Vector2(320f, 120f), OnCycleQuality);
+            var qrt = qualityLabel.transform.parent.GetComponent<RectTransform>();
+            qrt.anchorMin = qrt.anchorMax = new Vector2(1f, 1f);
+            qrt.pivot = new Vector2(1f, 1f);
+            qrt.anchoredPosition = new Vector2(-40f, -850f);
+            var qimg = qualityLabel.transform.parent.GetComponent<Image>();
+            if (qimg != null) qimg.color = new Color(0.30f, 0.18f, 0.30f, 0.85f);
+            qualityLabel.fontSize = 34;
+            UpdateQualityLabel();
+
             // The "not for diagnosis" disclaimer is required in-app; add its self-contained UI here so
             // no scene wiring is needed (shows once per launch + a persistent footer).
             if (GetComponent<DisclaimerUI>() == null)
@@ -231,6 +245,26 @@ namespace SliceAR
             perfLabel.text = "FPS: " + Loc.T(VolumeSession.ShowPerfHUD ? "state.on" : "state.off");
         }
 
+        private void OnCycleQuality()
+        {
+            RenderQuality.Cycle();
+            // Route through the controller so the change lands on the loaded volume immediately; the
+            // render-scale half applies globally and needs no volume reference.
+            EnsureController();
+            if (controller != null)
+                controller.ApplyRenderQuality();
+            else
+                RenderQuality.Apply(null);
+            UpdateQualityLabel();
+        }
+
+        private void UpdateQualityLabel()
+        {
+            if (qualityLabel == null)
+                return;
+            qualityLabel.text = Loc.T("quality") + ": " + Loc.T(RenderQuality.LabelKey(VolumeSession.Quality));
+        }
+
         private void OnCycleLanguage()
         {
             // Fires Loc.LanguageChanged, which routes back into RefreshTexts (this component is subscribed)
@@ -245,6 +279,7 @@ namespace SliceAR
             if (langLabel != null)     { langLabel.font = AppFont.Get(); langLabel.text = Loc.DisplayName(Loc.Current); }
             if (shadingLabel != null)  { shadingLabel.font = AppFont.Get(); UpdateShadingLabel(); }
             if (perfLabel != null)     { perfLabel.font = AppFont.Get(); UpdatePerfLabel(); }
+            if (qualityLabel != null)  { qualityLabel.font = AppFont.Get(); UpdateQualityLabel(); }
             if (label != null)      label.font = AppFont.Get();
             if (axisLabel != null)  axisLabel.font = AppFont.Get();
             if (sceneSwitchLabel != null) sceneSwitchLabel.font = AppFont.Get();
