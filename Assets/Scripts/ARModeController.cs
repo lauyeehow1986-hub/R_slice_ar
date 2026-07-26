@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 using UnityVolumeRendering;
 
 namespace SliceAR
@@ -21,6 +22,9 @@ namespace SliceAR
 
         [Tooltip("Edge size of the anchored volume, in metres.")]
         public float arScale = 0.3f;
+
+        [Tooltip("Seconds to wait for plane detection before placing the first anchor without a plane.")]
+        public float planeWaitTimeout = 1.5f;
 
         private VolumeRenderedObject anchoredVolume;
         private GameObject anchorGO;
@@ -67,6 +71,12 @@ namespace SliceAR
             // A couple of extra frames so the first tracked camera pose has settled.
             yield return null;
             yield return null;
+
+            // Give plane detection a brief chance to find the floor before the first anchor: a
+            // plane-attached anchor is far steadier than a free one (see AnchorInFrontRoutine).
+            // Bounded, so a featureless room still starts promptly — just without a plane.
+            yield return WaitForPlaneRoutine();
+
             volume.gameObject.SetActive(true);
 
             camT = Camera.main != null ? Camera.main.transform : null;
@@ -81,6 +91,10 @@ namespace SliceAR
             // Edge arrow pointing back to the anchored volume once the user moves away from it.
             if (GetComponent<ARVolumeIndicator>() == null)
                 gameObject.AddComponent<ARVolumeIndicator>();
+
+            // Tracking-quality hints: names the condition that makes an anchored volume drift away.
+            if (GetComponent<ARTrackingHintUI>() == null)
+                gameObject.AddComponent<ARTrackingHintUI>();
         }
 
         /// <summary>
@@ -90,10 +104,11 @@ namespace SliceAR
         /// around a lot). A fresh anchor is created each call — an existing anchor's pose is owned by the AR
         /// subsystem and must not be moved by hand — replacing the previous one.
         ///
-        /// Created via <see cref="ARAnchorManager.TryAddAnchorAsync"/>: adding an ARAnchor component to a
-        /// GameObject at runtime is the discouraged path, and silently leaves the anchor unregistered (so it
-        /// never actually tracks) if the manager isn't ready yet. Falls back to that older path only if the
-        /// async request is unavailable or fails, so anchoring still happens either way.
+        /// Three tiers, best first: <see cref="ARAnchorManager.AttachAnchor"/> onto a detected plane (steadiest
+        /// — ARCore refines planes and carries their anchors along), else <see cref="ARAnchorManager.TryAddAnchorAsync"/>
+        /// for a free world anchor, else an ARAnchor component. That last tier is the discouraged path: added at
+        /// runtime it silently leaves the anchor unregistered (so it never actually tracks) if the manager isn't
+        /// ready — kept only so anchoring still happens if the other two are unavailable.
         /// </summary>
         private IEnumerator AnchorInFrontRoutine()
         {
@@ -109,13 +124,31 @@ namespace SliceAR
             var manager = Object.FindObjectOfType<ARAnchorManager>();
             if (manager != null && manager.enabled)
             {
-                var awaiter = manager.TryAddAnchorAsync(pose).GetAwaiter();
-                while (!awaiter.IsCompleted)
-                    yield return null;
+                // Preferred: attach to a detected plane. ARCore keeps refining planes as it maps the
+                // room and moves plane-attached anchors along with them, so the volume holds its spot
+                // even where the feature cloud is thin (blank walls, plain flooring) — the case where
+                // a free world anchor can relocalise metres away.
+                var planes = Object.FindObjectOfType<ARPlaneManager>();
+                ARPlane plane = planes != null ? BestPlaneFor(planes, anchorPos) : null;
+                if (plane != null)
+                {
+                    var attached = manager.AttachAnchor(plane, pose);
+                    if (attached != null)
+                        newAnchor = attached.gameObject;
+                }
 
-                var result = awaiter.GetResult();
-                if (result.status.IsSuccess() && result.value != null)
-                    newAnchor = result.value.gameObject;
+                if (newAnchor == null)
+                {
+                    // No usable plane (detection still warming up, or nothing trackable in view).
+                    // A free world anchor is less stable but still better than none.
+                    var awaiter = manager.TryAddAnchorAsync(pose).GetAwaiter();
+                    while (!awaiter.IsCompleted)
+                        yield return null;
+
+                    var result = awaiter.GetResult();
+                    if (result.status.IsSuccess() && result.value != null)
+                        newAnchor = result.value.gameObject;
+                }
             }
 
             if (newAnchor == null)
@@ -134,6 +167,48 @@ namespace SliceAR
             if (anchorGO != null && anchorGO != newAnchor)
                 Destroy(anchorGO);
             anchorGO = newAnchor;
+        }
+
+        /// <summary>Wait (bounded by <see cref="planeWaitTimeout"/>) for at least one tracked plane.</summary>
+        private IEnumerator WaitForPlaneRoutine()
+        {
+            var planes = Object.FindObjectOfType<ARPlaneManager>();
+            if (planes == null)
+                yield break;
+
+            float waited = 0f;
+            while (waited < planeWaitTimeout && !HasTrackedPlane(planes))
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        private static bool HasTrackedPlane(ARPlaneManager planes)
+        {
+            foreach (var p in planes.trackables)
+                if (p.trackingState == TrackingState.Tracking)
+                    return true;
+            return false;
+        }
+
+        /// <summary>The tracked plane nearest <paramref name="point"/>, or null if none are tracked yet.</summary>
+        private static ARPlane BestPlaneFor(ARPlaneManager planes, Vector3 point)
+        {
+            ARPlane best = null;
+            float bestDist = float.MaxValue;
+            foreach (var p in planes.trackables)
+            {
+                if (p.trackingState != TrackingState.Tracking)
+                    continue;
+                float d = Vector3.Distance(p.center, point);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = p;
+                }
+            }
+            return best;
         }
 
         /// <summary>Bring the volume back in front of the user (the Recenter button in AR mode).</summary>

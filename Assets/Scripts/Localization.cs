@@ -270,6 +270,70 @@ namespace SliceAR
                 "Off", "Off", "Off", "Aus", "オフ", "Off", "关", "Mati", "அணை",
             },
 
+            // --- AR tracking quality hints ------------------------------------------------------------
+            // Shown when ARCore reports it cannot track: these are the conditions that make an anchored
+            // volume drift or jump, and each names the action the user can actually take.
+            ["track.features"] = new[]
+            {
+                "Point at a more detailed surface",
+                "Inquadra una superficie piu dettagliata",
+                "Apunta a una superficie con mas detalle",
+                "Auf eine detailreichere Flache richten",
+                "模様のある面に向けてください",            // JA
+                "Visez une surface plus texturee",
+                "请对准纹理更丰富的表面",                    // ZH
+                "Halakan ke permukaan yang lebih berbutir",
+                "விவரம் மிகுந்த மேற்பரப்பை நோக்கவும்", // TA
+            },
+            ["track.motion"] = new[]
+            {
+                "Move the device more slowly",
+                "Muovi il dispositivo piu lentamente",
+                "Mueve el dispositivo mas despacio",
+                "Gerat langsamer bewegen",
+                "端末をゆっくり動かしてください",          // JA
+                "Deplacez l'appareil plus lentement",
+                "请更慢地移动设备",                          // ZH
+                "Gerakkan peranti dengan lebih perlahan",
+                "சாதனத்தை மெதுவாக நகர்த்தவும்",  // TA
+            },
+            ["track.light"] = new[]
+            {
+                "Not enough light",
+                "Luce insufficiente",
+                "Luz insuficiente",
+                "Zu wenig Licht",
+                "光が足りません",                            // JA
+                "Lumiere insuffisante",
+                "光线不足",                                  // ZH
+                "Cahaya tidak mencukupi",
+                "வெளிச்சம் போதவில்லை",             // TA
+            },
+            ["track.relocalizing"] = new[]
+            {
+                "Recovering tracking...",
+                "Ripristino del tracciamento...",
+                "Recuperando el seguimiento...",
+                "Tracking wird wiederhergestellt...",
+                "トラッキングを回復中...",                  // JA
+                "Recuperation du suivi...",
+                "正在恢复跟踪...",                           // ZH
+                "Memulihkan penjejakan...",
+                "கண்காணிப்பு மீட்கப்படுகிறது...", // TA
+            },
+            ["track.initializing"] = new[]
+            {
+                "Move the device to start tracking",
+                "Muovi il dispositivo per avviare il tracciamento",
+                "Mueve el dispositivo para iniciar el seguimiento",
+                "Gerat bewegen, um das Tracking zu starten",
+                "端末を動かしてトラッキングを開始",        // JA
+                "Deplacez l'appareil pour demarrer le suivi",
+                "移动设备以开始跟踪",                        // ZH
+                "Gerakkan peranti untuk mula menjejak",
+                "கண்காணிப்பைத் தொடங்க சாதனத்தை நகர்த்தவும்", // TA
+            },
+
             // --- Disclaimer ---------------------------------------------------------------------------
             ["disclaimer.ack"] = new[]
             {
