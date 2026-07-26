@@ -32,6 +32,19 @@ namespace SliceAR
 
         private IEnumerator Start()
         {
+            // ARMode is build scene 0, so a device without ARCore would otherwise launch straight into a
+            // session that can never track: several seconds of nothing, then a volume with no passthrough.
+            // The 3D CT-viewer needs no ARCore at all, so hand over to it instead. Only Unsupported is
+            // treated as fatal — NeedsInstall means ARCore can still arrive, and the tracking wait below
+            // already covers that case.
+            yield return ARSession.CheckAvailability();
+            if (ARSession.state == ARSessionState.Unsupported)
+            {
+                VolumeSession.ArUnsupported = true;
+                UnityEngine.SceneManagement.SceneManager.LoadScene("ThreeDMode");
+                yield break;
+            }
+
             VolumeRenderedObject volume = null;
 
             var loader = GetComponent<VolumeFileLoader>();

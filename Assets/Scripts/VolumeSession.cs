@@ -56,6 +56,14 @@ namespace SliceAR
         /// switch — comparing the two modes is the main reason to have it on.</summary>
         public static bool ShowPerfHUD;
 
+        /// <summary>
+        /// Set once <see cref="ARModeController"/> has asked AR Foundation and been told this device cannot
+        /// run AR at all. The 3D CT-viewer is fully usable without ARCore, so the app falls back to it rather
+        /// than stranding the user in a scene that will never track — and the AR button hides itself, which
+        /// also stops the user bouncing straight back into the same dead end.
+        /// </summary>
+        public static bool ArUnsupported;
+
         /// <summary>Volume-render cost preset (see <see cref="RenderQuality"/>). Defaults to Low, which is
         /// the only level that holds the frame cap in the 3D cut-away on device (High 278 ms, Medium 75 ms,
         /// Low 33 ms). Medium and High remain available for inspecting a still frame, where a slow but

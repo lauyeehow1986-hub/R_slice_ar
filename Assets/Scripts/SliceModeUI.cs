@@ -301,9 +301,20 @@ namespace SliceAR
         {
             if (sceneSwitchLabel == null)
                 return;
+
+            bool inThreeD = SceneManager.GetActiveScene().name == "ThreeDMode";
+
+            // On a device with no ARCore, ARModeController has already bounced us here. Offering "AR mode"
+            // would just send the user straight back to be bounced again, so hide the button entirely.
+            var button = sceneSwitchLabel.transform.parent.gameObject;
+            bool show = !(inThreeD && VolumeSession.ArUnsupported);
+            if (button.activeSelf != show)
+                button.SetActive(show);
+            if (!show)
+                return;
+
             // Label names the destination, not the current scene.
-            sceneSwitchLabel.text = SceneManager.GetActiveScene().name == "ThreeDMode"
-                ? Loc.T("scene.ar") : Loc.T("scene.3d");
+            sceneSwitchLabel.text = inThreeD ? Loc.T("scene.ar") : Loc.T("scene.3d");
         }
 
         /// <summary>Create a small fixed anatomical-marker label anchored to a screen edge.</summary>
