@@ -54,10 +54,22 @@ namespace SliceAR
             }
         }
 
+        /// <summary>Target frame rate. 30 is the right ceiling for a volume renderer: the raymarch is the
+        /// whole cost and doubling it buys nothing diagnostically, while the heat and battery it burns are
+        /// real on a phone held up for AR.</summary>
+        public const int TargetFrameRate = 30;
+
         /// <summary>Apply the current level to <paramref name="volume"/> and to the pipeline.</summary>
         public static void Apply(VolumeRenderedObject volume)
         {
             var level = VolumeSession.Quality;
+
+            // Set the cap explicitly rather than inheriting it. Today 3D mode runs at 30 only because the
+            // app launches into AR and AR Foundation pins the rate to the ARCore camera's 30 Hz, which then
+            // survives the scene switch. Enter 3D first (or reorder the build scenes) and that cap silently
+            // disappears, letting Slice mode -- which is idle at the cap -- render uncapped for no benefit.
+            if (Application.targetFrameRate != TargetFrameRate)
+                Application.targetFrameRate = TargetFrameRate;
 
             if (volume != null)
                 volume.SetSamplingRateMultiplier(SamplingFor(level));
