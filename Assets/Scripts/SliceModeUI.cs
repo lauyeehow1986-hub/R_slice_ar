@@ -20,6 +20,7 @@ namespace SliceAR
         private Text lutLabel;          // top-right: cycle the colour LUT (transfer-function palette)
         private Text langLabel;         // top-right: cycle the UI language
         private Text shadingLabel;      // top-right: toggle gradient (normal-based) shading
+        private Text perfLabel;         // top-right: toggle the on-device frame-time readout
         private Text recenterLabel;     // bottom-centre: recenter (kept for language refresh)
         private SliceController.SliceMode? shownMode;   // last mode rendered on the Mode button
 
@@ -142,10 +143,28 @@ namespace SliceAR
             shadingLabel.fontSize = 34;
             UpdateShadingLabel();
 
+            // Frame-time readout toggle (top-right, below the shading button). Default off, so it costs
+            // nothing until asked for; the readout itself lives in PerfHUD.
+            perfLabel = MakeButton(canvasGO.transform, "PerfButton",
+                Vector2.zero, new Vector2(320f, 120f), OnTogglePerf);
+            var prt = perfLabel.transform.parent.GetComponent<RectTransform>();
+            prt.anchorMin = prt.anchorMax = new Vector2(1f, 1f);
+            prt.pivot = new Vector2(1f, 1f);
+            prt.anchoredPosition = new Vector2(-40f, -710f);
+            var pimg = perfLabel.transform.parent.GetComponent<Image>();
+            if (pimg != null) pimg.color = new Color(0.18f, 0.32f, 0.18f, 0.85f);
+            perfLabel.fontSize = 34;
+            UpdatePerfLabel();
+
             // The "not for diagnosis" disclaimer is required in-app; add its self-contained UI here so
             // no scene wiring is needed (shows once per launch + a persistent footer).
             if (GetComponent<DisclaimerUI>() == null)
                 gameObject.AddComponent<DisclaimerUI>();
+
+            // Frame-time readout (hidden until toggled on). Lives in both scenes so AR and 3D can be
+            // compared directly.
+            if (GetComponent<PerfHUD>() == null)
+                gameObject.AddComponent<PerfHUD>();
 
             // Annotation tool (markers + measurement) — self-contained, finds the volume itself.
             if (GetComponent<AnnotationManager>() == null)
@@ -197,6 +216,21 @@ namespace SliceAR
                 Loc.T(VolumeSession.GradientShading ? "state.on" : "state.off");
         }
 
+        private void OnTogglePerf()
+        {
+            VolumeSession.ShowPerfHUD = !VolumeSession.ShowPerfHUD;
+            UpdatePerfLabel();
+        }
+
+        private void UpdatePerfLabel()
+        {
+            if (perfLabel == null)
+                return;
+            // "FPS" is left untranslated, like "mm" and the R/L/A/P/S/I markers — it reads as an
+            // abbreviation rather than a word in every language we ship.
+            perfLabel.text = "FPS: " + Loc.T(VolumeSession.ShowPerfHUD ? "state.on" : "state.off");
+        }
+
         private void OnCycleLanguage()
         {
             // Fires Loc.LanguageChanged, which routes back into RefreshTexts (this component is subscribed)
@@ -210,6 +244,7 @@ namespace SliceAR
             if (recenterLabel != null) { recenterLabel.font = AppFont.Get(); recenterLabel.text = Loc.T("recenter"); }
             if (langLabel != null)     { langLabel.font = AppFont.Get(); langLabel.text = Loc.DisplayName(Loc.Current); }
             if (shadingLabel != null)  { shadingLabel.font = AppFont.Get(); UpdateShadingLabel(); }
+            if (perfLabel != null)     { perfLabel.font = AppFont.Get(); UpdatePerfLabel(); }
             if (label != null)      label.font = AppFont.Get();
             if (axisLabel != null)  axisLabel.font = AppFont.Get();
             if (sceneSwitchLabel != null) sceneSwitchLabel.font = AppFont.Get();

@@ -52,6 +52,10 @@ namespace SliceAR
         /// the choice persists across the scene reload an import / AR↔3D switch performs.</summary>
         public static bool GradientShading;
 
+        /// <summary>Whether the on-device frame-time readout is showing. Static so it survives the AR↔3D
+        /// switch — comparing the two modes is the main reason to have it on.</summary>
+        public static bool ShowPerfHUD;
+
         /// <summary>Stable identifier for the loaded dataset (bundled file name, or an import's file
         /// name). Annotations are stored/loaded keyed by this so each dataset keeps its own markers.</summary>
         public static string DatasetId = "default";
