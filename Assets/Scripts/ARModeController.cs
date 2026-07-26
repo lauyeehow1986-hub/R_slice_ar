@@ -79,6 +79,16 @@ namespace SliceAR
 
             volume.gameObject.SetActive(true);
 
+            // Anchoring without a camera silently places the volume at the world origin instead of in
+            // front of the user (see AnchorInFrontRoutine's fallback), so give Camera.main a bounded
+            // chance to resolve as the AR rig comes up.
+            float camWait = 0f;
+            while (Camera.main == null && camWait < 3f)
+            {
+                camWait += Time.deltaTime;
+                yield return null;
+            }
+
             camT = Camera.main != null ? Camera.main.transform : null;
             anchoredVolume = volume;
             yield return AnchorInFrontRoutine();
@@ -161,8 +171,13 @@ namespace SliceAR
 
             anchoredVolume.transform.SetParent(newAnchor.transform, false);
             anchoredVolume.transform.localPosition = Vector3.zero;
-            anchoredVolume.transform.localRotation = Quaternion.identity;
             anchoredVolume.transform.localScale = Vector3.one * arScale;
+            // Set the WORLD rotation, not the local one: the anchor's own rotation depends on which tier
+            // produced it (a plane-attached anchor can be aligned to the plane, a free one is not), so
+            // keeping localRotation at identity would bring the volume up in a different orientation from
+            // one entry or Recenter to the next. Pinning world rotation makes it identical every time,
+            // while leaving the volume free to ride the anchor as ARCore corrects it.
+            anchoredVolume.transform.rotation = Quaternion.identity;
 
             if (anchorGO != null && anchorGO != newAnchor)
                 Destroy(anchorGO);

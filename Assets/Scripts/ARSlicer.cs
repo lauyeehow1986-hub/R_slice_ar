@@ -29,8 +29,21 @@ namespace SliceAR
 
         private void Update()
         {
-            if (controller == null || arCamera == null)
+            if (controller == null)
                 return;
+
+            // Camera.main can still be unresolved when Attach runs, since the AR camera is enabled and
+            // tagged as the rig comes up. Keep retrying: with no camera ApplyPose never runs at all, so
+            // the cross-section stays where VolumeObjectFactory spawned it — at the volume origin — and
+            // the volume renders permanently cut in half. Recovering here rather than giving up once is
+            // what stops that state from lasting the whole session.
+            if (arCamera == null)
+            {
+                var cam = Camera.main;
+                if (cam == null)
+                    return;
+                arCamera = cam.transform;
+            }
 
             controller.ApplyPose(arCamera.position, arCamera.rotation);
         }
