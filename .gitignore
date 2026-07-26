@@ -69,3 +69,7 @@ Thumbs.db
 # License allows personal use but forbids mirroring/redistribution, so never commit these.
 Assets/StreamingAssets/CThead_*.raw
 Assets/StreamingAssets/CThead_*.raw.meta
+
+# Unity crash-recovery scene copies. Regenerated automatically; never source of truth.
+Assets/_Recovery/
+Assets/_Recovery.meta
