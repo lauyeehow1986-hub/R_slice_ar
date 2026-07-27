@@ -21,6 +21,15 @@ namespace SliceAR
         private const float WorstWindow = 3f;         // seconds before the worst-frame figure resets
         private const float TextInterval = 0.25f;     // throttle label rebuilds; they are not free
 
+        // A 0.1-weighted average takes roughly 30 frames to catch up, which at 12 FPS is over two seconds.
+        // Switching quality or mode moves the true frame time by multiples, so anyone who changes a setting
+        // and reads the number straight away sees a value still travelling from the previous one. Snap once
+        // the frame time has clearly moved AND stayed moved for a few frames -- long enough that a one-off
+        // hitch (the render targets reallocating on a render-scale change costs about a second) does not
+        // yank the average with it.
+        private const int OutlierFramesToSnap = 3;
+        private const float OutlierRatio = 1.6f;
+
         private Text label;
         private GameObject backing;
 
@@ -28,6 +37,7 @@ namespace SliceAR
         private float worstMs;
         private float worstResetAt;
         private float nextTextAt;
+        private int outlierFrames;
 
         private void Start()
         {
@@ -49,7 +59,26 @@ namespace SliceAR
 
             // Unscaled: this measures real elapsed wall time, independent of any timeScale.
             float ms = Time.unscaledDeltaTime * 1000f;
-            smoothedMs = smoothedMs <= 0f ? ms : Mathf.Lerp(smoothedMs, ms, SmoothingFactor);
+
+            if (smoothedMs <= 0f)
+            {
+                smoothedMs = ms;
+            }
+            else
+            {
+                bool outlier = ms > smoothedMs * OutlierRatio || ms < smoothedMs / OutlierRatio;
+                outlierFrames = outlier ? outlierFrames + 1 : 0;
+
+                if (outlierFrames >= OutlierFramesToSnap)
+                {
+                    smoothedMs = ms;      // the workload really did change; stop averaging across the change
+                    outlierFrames = 0;
+                }
+                else
+                {
+                    smoothedMs = Mathf.Lerp(smoothedMs, ms, SmoothingFactor);
+                }
+            }
 
             if (Time.unscaledTime >= worstResetAt)
             {

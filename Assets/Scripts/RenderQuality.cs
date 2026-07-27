@@ -73,7 +73,7 @@ namespace SliceAR
             switch (level)
             {
                 case QualityLevel.Low: return 0.5f;
-                case QualityLevel.Medium: return 0.8f;
+                case QualityLevel.Medium: return 0.65f;
                 default: return 1f;
             }
         }
