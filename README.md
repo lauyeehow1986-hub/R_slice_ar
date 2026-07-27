@@ -58,6 +58,11 @@ Slice-AR makes **no network calls**. Nothing is uploaded, and no analytics or te
 collected. Imported datasets and annotations are written only to the app's private storage and are
 removed when you uninstall.
 
+If you inspect the APK you will see an `INTERNET` permission. That is declared by the Unity engine
+and its Android plugins, not by this app's code, and nothing in Slice-AR opens a network connection.
+The camera permission is used only for AR passthrough, and storage only for importing datasets you
+choose yourself.
+
 ## Bundled dataset
 
 **MRHead** — a T1 MRI head scan from the [3D Slicer](https://www.slicer.org/) sample data, donated
