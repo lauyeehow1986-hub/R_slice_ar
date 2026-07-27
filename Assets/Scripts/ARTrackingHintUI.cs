@@ -102,6 +102,9 @@ namespace SliceAR
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 290;   // above the off-screen indicator, below the buttons
+            // Scaled so the hint keeps its clearance above the bottom button rows on every screen width,
+            // rather than only where a raw pixel happens to equal a reference unit.
+            OrientationScaler.Attach(canvasGO);
             var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
             // Sits above the bottom button rows, centred.

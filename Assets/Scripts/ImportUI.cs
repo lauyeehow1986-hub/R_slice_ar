@@ -79,10 +79,13 @@ namespace SliceAR
             canvasGO.AddComponent<GraphicRaycaster>();
             var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
-            // "Import" launcher button (top-left, clear of the bottom-centre Mode button). 40 px from the
-            // top edge puts it under the status bar once the app goes edge-to-edge, hence the safe root.
+            // "Import" launcher button (top-left, clear of the bottom-centre Mode button). Hangs off the
+            // safe root so the cutout does not clip it. It starts 110 below the safe top rather than 40
+            // because the disclaimer footer occupies 30..90 across the full width and draws over the top
+            // of it (sortingOrder 500 against this canvas's 10) -- at 40 the yellow line cut through the
+            // button's label.
             var openBtn = CreateButton(uiRoot, Loc.T("import.open"), new Vector2(0f, 1f),
-                new Vector2(40f, -40f), new Vector2(300f, 130f), () => SetPanelVisible(true));
+                new Vector2(40f, -110f), new Vector2(300f, 130f), () => SetPanelVisible(true));
             var obr = openBtn.GetComponent<RectTransform>();
             obr.pivot = new Vector2(0f, 1f);
 

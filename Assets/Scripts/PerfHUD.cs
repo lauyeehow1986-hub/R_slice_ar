@@ -113,9 +113,13 @@ namespace SliceAR
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 300;   // above the tracking hint, below the disclaimer modal
+            // Scaled like the rest of the UI. Without this the HUD's offsets are raw pixels while the
+            // Import button's are reference units, so "below the Import button" would only be true on a
+            // 1080-wide screen and the two would drift into each other on anything else.
+            OrientationScaler.Attach(canvasGO);
             var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
-            // Top-left, below the Import button, where nothing else draws in either scene.
+            // Top-left, below the Import button (which ends at 240), where nothing else draws.
             var backingGO = new GameObject("PerfBacking");
             backingGO.transform.SetParent(uiRoot, false);
             var img = backingGO.AddComponent<Image>();
@@ -125,7 +129,7 @@ namespace SliceAR
             brt.anchorMin = brt.anchorMax = new Vector2(0f, 1f);
             brt.pivot = new Vector2(0f, 1f);
             brt.sizeDelta = new Vector2(520f, 112f);
-            brt.anchoredPosition = new Vector2(36f, -230f);
+            brt.anchoredPosition = new Vector2(36f, -270f);
             backing = backingGO;
             backingGO.SetActive(false);
 
@@ -143,7 +147,7 @@ namespace SliceAR
             lrt.anchorMin = lrt.anchorMax = new Vector2(0f, 1f);
             lrt.pivot = new Vector2(0f, 1f);
             lrt.sizeDelta = new Vector2(520f, 112f);
-            lrt.anchoredPosition = new Vector2(36f, -230f);
+            lrt.anchoredPosition = new Vector2(36f, -270f);
             labelGO.SetActive(false);
         }
     }
