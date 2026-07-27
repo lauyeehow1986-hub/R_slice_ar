@@ -185,18 +185,57 @@ namespace SliceAR
             {
                 if (slicingPlane != null)
                 {
-                    // Anchor the slice at the volume centre so it is always inside the volume and
-                    // readable from a distance; the device only steers the slice angle. Use the
-                    // renderer's world-space bounds centre rather than transform.position: importers
-                    // (notably DICOM) bake an offset/scale into the mesh, so the GameObject origin is
-                    // not the visual centre — pivoting there flings the slice off to one corner.
+                    Quaternion planeRot = rotation * Quaternion.Euler(sliceOffsetEuler);
                     Vector3 slicePos = (anchorSliceAtVolumeCentre && volume != null)
-                        ? VolumeCentre()
+                        ? SliceDepthFor(position, planeRot)
                         : position;
                     activePlanePoint = slicePos;
-                    slicingPlane.transform.SetPositionAndRotation(slicePos, rotation * Quaternion.Euler(sliceOffsetEuler));
+                    slicingPlane.transform.SetPositionAndRotation(slicePos, planeRot);
                 }
             }
+        }
+
+        // How far the plane may travel from the centre, as a fraction of the volume's half-extent along the
+        // slice normal. Short of 1 so the plane never sits exactly on a face, where the quad's border reads
+        // outside the volume and ghosts into frame.
+        private const float DepthLimit = 0.9f;
+
+        // Device distance from the centre along the slice normal, in half-extents, over which the plane hands
+        // control from the centre anchor to the device. Fully device-driven inside FollowInner, fully centred
+        // beyond FollowOuter.
+        private const float FollowInner = 0.8f;
+        private const float FollowOuter = 1.6f;
+
+        /// <summary>
+        /// Where the slice plane sits along its own normal, given the device pose (AR only — 3D drives the
+        /// plane through <see cref="ShowCtSlice"/> instead).
+        ///
+        /// Standing back and watching the slice re-cut as the phone turns is the main way this mode is used,
+        /// and the volume centre is the most informative cut, so the centre is held while the device is away
+        /// from the volume. Pure device tracking would put the plane at the outer scalp whenever the user
+        /// stood at a normal viewing distance, and pure centre anchoring means walking the phone through the
+        /// anatomy — the whole point of AR — changes nothing but the angle.
+        ///
+        /// So the plane comes out to meet the device as it reaches the volume and then rides it through.
+        /// Blended across a band rather than switched at a threshold, so there is no jump at the boundary.
+        /// </summary>
+        private Vector3 SliceDepthFor(Vector3 devicePosition, Quaternion planeRotation)
+        {
+            Vector3 centre = VolumeCentre();
+
+            // UVR's slice shader samples the volume on the plane's local XZ at y = 0, so the plane's local Y
+            // is the slice normal — the one axis along which moving the plane changes which cut is shown.
+            Vector3 normal = planeRotation * Vector3.up;
+
+            float half = HalfExtentAlong(normal);
+            if (half <= Mathf.Epsilon)
+                return centre;
+
+            float along = Vector3.Dot(devicePosition - centre, normal);
+            float follow = 1f - Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(FollowInner, FollowOuter, Mathf.Abs(along) / half));
+
+            return centre + normal * (Mathf.Clamp(along, -half * DepthLimit, half * DepthLimit) * follow);
         }
 
         /// <summary>World-space visual centre of the volume (bounds centre, which accounts for the
