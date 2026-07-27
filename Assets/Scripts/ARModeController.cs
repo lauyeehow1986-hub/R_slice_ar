@@ -118,6 +118,11 @@ namespace SliceAR
             // Tracking-quality hints: names the condition that makes an anchored volume drift away.
             if (GetComponent<ARTrackingHintUI>() == null)
                 gameObject.AddComponent<ARTrackingHintUI>();
+
+            // Wireframe box marking where the anchored volume sits, for Slice mode — which hides the
+            // volume itself and would otherwise leave nothing to walk towards.
+            if (GetComponent<ARVolumeOutline>() == null)
+                gameObject.AddComponent<ARVolumeOutline>();
         }
 
         /// <summary>
