@@ -10,11 +10,23 @@ namespace SliceAR
     public static class VolumeSession
     {
         /// <summary>
-        /// True when the loaded volume carries a known anatomical orientation (a DICOM series, whose
-        /// LPS convention the importer maps to Unity space). Headerless RAW and plain image sequences
-        /// have no orientation metadata, so orientation markers would be meaningless for them.
+        /// True when the loaded volume's anatomical axes are known, so orientation markers and the
+        /// canonical plane labels mean something. A DICOM series carries them; the bundled sample has a
+        /// mapping calibrated against its own acquisition (see <see cref="VolumeFileLoader"/>).
+        /// Headerless RAW and plain image sequences do not — for those the axes below are only the
+        /// importer's best guess, and nothing on screen may present a guess as anatomy.
         /// </summary>
-        public static bool IsDicomOriented;
+        public static bool OrientationKnown;
+
+        /// <summary>
+        /// True when left and right can be trusted, not merely the axis they lie along. Only DICOM
+        /// carries the laterality (ImageOrientationPatient); a headerless volume that happens to be
+        /// mirrored renders identically — a head is close to symmetric — so a wrong L/R would look
+        /// perfectly plausible, which is exactly the mistake worth refusing to make. Superior/inferior
+        /// and anterior/posterior are legible in the image itself, so they are shown whenever
+        /// <see cref="OrientationKnown"/> is set.
+        /// </summary>
+        public static bool LateralityKnown;
 
         // Which dataset-local axis points to each patient direction, so the 3D CT-viewer can label its
         // planes (Axial/Coronal/Sagittal) and the orientation markers correctly for volumes whose grid

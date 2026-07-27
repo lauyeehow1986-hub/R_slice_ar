@@ -115,7 +115,12 @@ namespace SliceAR
                 voxelSizeMm = VolumeImportRequest.voxelSizeMm;
                 transferFunctionPreset = VolumeImportRequest.tfPreset;
                 VolumeSession.DatasetId = ImportDatasetId(kind);
-                VolumeSession.IsDicomOriented = kind == VolumeImportRequest.Kind.Dicom;
+                // Only DICOM states its own orientation. An imported RAW / image stack gets the
+                // importer convention below as a fallback so the viewer has *some* frame to work in,
+                // but it is a guess, so the orientation markers stay off for it.
+                bool dicom = kind == VolumeImportRequest.Kind.Dicom;
+                VolumeSession.OrientationKnown = dicom;
+                VolumeSession.LateralityKnown = dicom;
                 // DICOM (and, as a best guess, imported RAW/image sequences) follow the importer's
                 // +X=Left, +Y=Posterior, +Z=Superior convention.
                 VolumeSession.ResetAxes();
@@ -148,10 +153,18 @@ namespace SliceAR
             else
             {
                 VolumeSession.DatasetId = fileName;
-                VolumeSession.IsDicomOriented = false;   // bundled RAW has no orientation metadata
                 // The bundled MRHead is a sagittal T1 acquisition: its grid is dataset X=anterior/
                 // posterior, Y=superior/inferior, Z=left/right — not the importer convention. Map the
                 // patient axes so the CT-viewer's Axial/Coronal/Sagittal planes come out upright.
+                //
+                // The file itself is headerless RAW, so this mapping is a calibration of THIS dataset,
+                // confirmed by the three canonical planes rendering upright and the right way round.
+                // That confirms the two axes you can read off the image — superior/inferior and
+                // anterior/posterior — but not which end of the third axis is the patient's left: a
+                // mirrored head looks the same. So the axes count as known and the laterality does not,
+                // and the orientation markers show A/P/S/I here while leaving L/R blank.
+                VolumeSession.OrientationKnown = true;
+                VolumeSession.LateralityKnown = false;
                 VolumeSession.AxisLeft      = new Vector3(0f, 0f, 1f);   //  +Z → Left
                 VolumeSession.AxisPosterior = new Vector3(-1f, 0f, 0f);  //  -X → Posterior
                 VolumeSession.AxisSuperior  = new Vector3(0f, -1f, 0f);  //  -Y → Superior

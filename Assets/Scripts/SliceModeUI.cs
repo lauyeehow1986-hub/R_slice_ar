@@ -341,14 +341,14 @@ namespace SliceAR
         }
 
         // Show which patient direction points to each screen edge for the on-screen slice. Only
-        // meaningful for DICOM (known LPS orientation) in Slice mode; hidden otherwise.
+        // meaningful where the dataset's anatomical axes are known, and only in Slice mode.
         private void UpdateOrientationMarkers()
         {
             if (markTop == null)
                 return;
 
             EnsureController();
-            bool show = VolumeSession.IsDicomOriented
+            bool show = VolumeSession.OrientationKnown
                         && controller != null
                         && controller.Mode == SliceController.SliceMode.Slice;
 
@@ -367,16 +367,24 @@ namespace SliceAR
                 return;
             }
 
-            // Patient axes in the LPS-oriented container's local frame (importer assumes standard
-            // axial LPS: +X→Left, +Y→Posterior, +Z→Superior). TransformVector carries the importer's
+            // Patient axes in the container's local frame. Which dataset-local axis points where
+            // depends on how the grid was acquired, so read the mapping from VolumeSession rather than
+            // assuming the DICOM convention — hardcoding +X→Left here is what previously limited these
+            // markers to DICOM. TransformVector (not TransformDirection) carries the importer's
             // handedness flip and the live turntable rotation into world space.
-            Vector3 left      = orientFrame.TransformVector(Vector3.right).normalized;
-            Vector3 posterior = orientFrame.TransformVector(Vector3.up).normalized;
-            Vector3 superior  = orientFrame.TransformVector(Vector3.forward).normalized;
+            Vector3 left      = orientFrame.TransformVector(VolumeSession.AxisLeft).normalized;
+            Vector3 posterior = orientFrame.TransformVector(VolumeSession.AxisPosterior).normalized;
+            Vector3 superior  = orientFrame.TransformVector(VolumeSession.AxisSuperior).normalized;
+
+            // L and R are labelled only where the dataset states its laterality. Everywhere else the
+            // left/right axis is still known — it just isn't known which end is which — so those edges
+            // are left blank rather than filled with a coin toss. A/P/S/I are unaffected.
+            string tagL = VolumeSession.LateralityKnown ? "L" : "";
+            string tagR = VolumeSession.LateralityKnown ? "R" : "";
 
             var dirs = new (Vector3 dir, string tag)[]
             {
-                (left, "L"), (-left, "R"),
+                (left, tagL), (-left, tagR),
                 (posterior, "P"), (-posterior, "A"),
                 (superior, "S"), (-superior, "I"),
             };
