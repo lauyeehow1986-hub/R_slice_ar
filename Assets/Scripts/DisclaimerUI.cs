@@ -66,7 +66,9 @@ namespace SliceAR
         {
             var canvas = NewCanvas("DisclaimerFooterCanvas", 500);
             var go = new GameObject("FooterText");
-            go.transform.SetParent(canvas.transform, false);
+            // 30 px below the top edge is squarely behind the clock once the app draws edge-to-edge, and
+            // this is the one line that legally has to stay readable — so it hangs off the safe area.
+            go.transform.SetParent(SafeArea.RootUnder(canvas.transform), false);
             var text = go.AddComponent<Text>();
             text.font = AppFont.Get();
             text.fontSize = 30;
@@ -99,15 +101,19 @@ namespace SliceAR
             bgrt.offsetMin = Vector2.zero;
             bgrt.offsetMax = Vector2.zero;
 
+            // The dim stays full-screen — a backdrop that stopped short of the system bars would leave two
+            // bright strips across a modal. Only the content inside it is held to the safe area.
+            var content = SafeArea.RootUnder(bg.transform);
+
             // Title is the brand name — not localized.
-            AddText(bg.transform, "Title", "Slice-AR", 64, FontStyle.Bold, Color.white,
+            AddText(content, "Title", "Slice-AR", 64, FontStyle.Bold, Color.white,
                 new Vector2(0.5f, 0.78f), new Vector2(0f, 0f), new Vector2(960f, 120f));
 
-            bodyText = AddText(bg.transform, "Body", Loc.T("disclaimer.body"), 40, FontStyle.Normal,
+            bodyText = AddText(content, "Body", Loc.T("disclaimer.body"), 40, FontStyle.Normal,
                 new Color(0.92f, 0.92f, 0.92f),
                 new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(920f, 760f));
 
-            ackLabel = MakeButton(bg.transform, "AckButton", new Vector2(0.5f, 0.14f),
+            ackLabel = MakeButton(content, "AckButton", new Vector2(0.5f, 0.14f),
                 new Vector2(640f, 150f), Acknowledge);
             ackLabel.text = Loc.T("disclaimer.ack");
         }

@@ -79,16 +79,18 @@ namespace SliceAR
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             canvasGO.AddComponent<GraphicRaycaster>();
+            var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
-            // "Import" launcher button (top-left, clear of the bottom-centre Mode button).
-            var openBtn = CreateButton(canvasGO.transform, Loc.T("import.open"), new Vector2(0f, 1f),
+            // "Import" launcher button (top-left, clear of the bottom-centre Mode button). 40 px from the
+            // top edge puts it under the status bar once the app goes edge-to-edge, hence the safe root.
+            var openBtn = CreateButton(uiRoot, Loc.T("import.open"), new Vector2(0f, 1f),
                 new Vector2(40f, -40f), new Vector2(300f, 130f), () => SetPanelVisible(true));
             var obr = openBtn.GetComponent<RectTransform>();
             obr.pivot = new Vector2(0f, 1f);
 
             // Modal-ish panel.
             panel = new GameObject("ImportPanel");
-            panel.transform.SetParent(canvasGO.transform, false);
+            panel.transform.SetParent(uiRoot, false);
             var pImg = panel.AddComponent<Image>();
             pImg.color = new Color(0.05f, 0.05f, 0.07f, 0.96f);
             var prt = panel.GetComponent<RectTransform>();

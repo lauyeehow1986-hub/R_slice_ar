@@ -102,10 +102,11 @@ namespace SliceAR
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 290;   // above the off-screen indicator, below the buttons
+            var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
             // Sits above the bottom button rows, centred.
             var backingGO = new GameObject("HintBacking");
-            backingGO.transform.SetParent(canvasGO.transform, false);
+            backingGO.transform.SetParent(uiRoot, false);
             backing = backingGO.AddComponent<Image>();
             backing.color = new Color(0f, 0f, 0f, 0.55f);
             backing.raycastTarget = false;
@@ -117,7 +118,7 @@ namespace SliceAR
             backingGO.SetActive(false);
 
             var labelGO = new GameObject("HintText");
-            labelGO.transform.SetParent(canvasGO.transform, false);
+            labelGO.transform.SetParent(uiRoot, false);
             label = labelGO.AddComponent<Text>();
             label.font = AppFont.Get();
             label.fontSize = 34;

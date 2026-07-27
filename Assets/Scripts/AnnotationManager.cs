@@ -474,18 +474,24 @@ namespace SliceAR
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             bcGO.AddComponent<GraphicRaycaster>();
 
+            // The buttons sit 40 px off the bottom edge, which is inside the navigation bar once the app
+            // draws edge-to-edge — so they hang off the safe area. The marker canvas above deliberately
+            // does not: its children are placed in raw screen pixels from WorldToScreenPoint, and insetting
+            // that root would slide every marker off the anatomy it labels.
+            var uiRoot = SafeArea.RootUnder(bcGO.transform);
+
             // Bottom-left stack, narrow enough to clear the centre Mode/Recenter column.
-            addBtn = MakeButton(bcGO.transform, "AddMarkerBtn", new Vector2(16f, 40f),
+            addBtn = MakeButton(uiRoot, "AddMarkerBtn", new Vector2(16f, 40f),
                 new Vector2(290f, 130f), OnToggleAdd);
             addBtn.text = Loc.T("annot.marker");
-            measureBtn = MakeButton(bcGO.transform, "MeasureBtn", new Vector2(16f, 190f),
+            measureBtn = MakeButton(uiRoot, "MeasureBtn", new Vector2(16f, 190f),
                 new Vector2(290f, 130f), OnToggleMeasure);
             measureBtn.text = Loc.T("annot.measure");
-            deleteBtn = MakeButton(bcGO.transform, "DeleteBtn", new Vector2(16f, 340f),
+            deleteBtn = MakeButton(uiRoot, "DeleteBtn", new Vector2(16f, 340f),
                 new Vector2(290f, 130f), OnDelete);
             deleteBtn.text = Loc.T("annot.delete");
 
-            renameField = MakeInputField(bcGO.transform, new Vector2(16f, 490f), new Vector2(290f, 110f));
+            renameField = MakeInputField(uiRoot, new Vector2(16f, 490f), new Vector2(290f, 110f));
             renameField.gameObject.SetActive(false);
 
             RefreshButtons();

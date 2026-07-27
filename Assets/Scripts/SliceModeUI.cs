@@ -63,6 +63,10 @@ namespace SliceAR
             scaler.referenceResolution = new Vector2(1080f, 1920f);
             canvasGO.AddComponent<GraphicRaycaster>();
 
+            // Everything here is anchored a fixed distance from a screen edge, so it all hangs off the
+            // safe area rather than the canvas — see SafeArea for why that matters from target API 36.
+            var uiRoot = SafeArea.RootUnder(canvasGO.transform);
+
             if (Object.FindObjectOfType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem");
@@ -72,30 +76,30 @@ namespace SliceAR
 
             // Mode toggle, bottom-centre. Kept narrower than the screen so the annotation controls have
             // clear space in the bottom-left corner (they used to overlap the wider buttons).
-            label = MakeButton(canvasGO.transform, "ModeButton",
+            label = MakeButton(uiRoot, "ModeButton",
                 new Vector2(0f, 140f), new Vector2(420f, 160f), OnClick);
 
             // Recenter, bottom-centre just above the mode button — sets the current tilt as the
             // mid-stack neutral and clears accumulated sensor drift.
-            recenterLabel = MakeButton(canvasGO.transform, "RecenterButton",
+            recenterLabel = MakeButton(uiRoot, "RecenterButton",
                 new Vector2(0f, 320f), new Vector2(420f, 140f), OnRecenter);
             recenterLabel.text = Loc.T("recenter");
 
             // Axis cycle (Axial/Coronal/Sagittal), above Recenter.
-            axisLabel = MakeButton(canvasGO.transform, "AxisButton",
+            axisLabel = MakeButton(uiRoot, "AxisButton",
                 new Vector2(0f, 480f), new Vector2(420f, 140f), OnCycleAxis);
 
             // Anatomical edge markers (hidden until a DICOM slice is on screen).
-            markTop    = MakeEdgeLabel(canvasGO.transform, "MarkTop",    new Vector2(0.5f, 1f), new Vector2(0f, -110f));
-            markBottom = MakeEdgeLabel(canvasGO.transform, "MarkBottom", new Vector2(0.5f, 0f), new Vector2(0f, 520f));
-            markLeft   = MakeEdgeLabel(canvasGO.transform, "MarkLeft",   new Vector2(0f, 0.5f), new Vector2(70f, 0f));
-            markRight  = MakeEdgeLabel(canvasGO.transform, "MarkRight",  new Vector2(1f, 0.5f), new Vector2(-70f, 0f));
+            markTop    = MakeEdgeLabel(uiRoot, "MarkTop",    new Vector2(0.5f, 1f), new Vector2(0f, -110f));
+            markBottom = MakeEdgeLabel(uiRoot, "MarkBottom", new Vector2(0.5f, 0f), new Vector2(0f, 520f));
+            markLeft   = MakeEdgeLabel(uiRoot, "MarkLeft",   new Vector2(0f, 0.5f), new Vector2(70f, 0f));
+            markRight  = MakeEdgeLabel(uiRoot, "MarkRight",  new Vector2(1f, 0.5f), new Vector2(-70f, 0f));
 
             // Scene switch (top-right): the app has two scenes — ARMode (walk the device through a
             // volume anchored in the room) and ThreeDMode (the stable CT-viewer). Nothing else lets
             // the user move between them, so without this button whichever scene ships as build-index
             // 0 is the only one reachable.
-            sceneSwitchLabel = MakeButton(canvasGO.transform, "SceneSwitchButton",
+            sceneSwitchLabel = MakeButton(uiRoot, "SceneSwitchButton",
                 Vector2.zero, new Vector2(320f, 120f), OnSwitchScene);
             var ssrt = sceneSwitchLabel.transform.parent.GetComponent<RectTransform>();
             ssrt.anchorMin = ssrt.anchorMax = new Vector2(1f, 1f);
@@ -107,7 +111,7 @@ namespace SliceAR
 
             // Colour-LUT picker (top-right, below the scene switch): cycles the transfer-function
             // palette (Grayscale / Hot Metal / Rainbow / Cool) and re-applies it to the loaded volume.
-            lutLabel = MakeButton(canvasGO.transform, "LutButton",
+            lutLabel = MakeButton(uiRoot, "LutButton",
                 Vector2.zero, new Vector2(320f, 120f), OnCycleLut);
             var lrt = lutLabel.transform.parent.GetComponent<RectTransform>();
             lrt.anchorMin = lrt.anchorMax = new Vector2(1f, 1f);
@@ -120,7 +124,7 @@ namespace SliceAR
 
             // Language picker (top-right, below the LUT button): cycles the UI language. Selection is
             // static + persisted, so it carries across scene switches and app restarts.
-            langLabel = MakeButton(canvasGO.transform, "LangButton",
+            langLabel = MakeButton(uiRoot, "LangButton",
                 Vector2.zero, new Vector2(320f, 120f), OnCycleLanguage);
             var glrt = langLabel.transform.parent.GetComponent<RectTransform>();
             glrt.anchorMin = glrt.anchorMax = new Vector2(1f, 1f);
@@ -133,7 +137,7 @@ namespace SliceAR
 
             // Gradient-shading toggle (top-right, below the language button): normal-based lighting on the
             // 3D volume (Clip mode / AR). Choice held in VolumeSession so it survives scene switches.
-            shadingLabel = MakeButton(canvasGO.transform, "ShadingButton",
+            shadingLabel = MakeButton(uiRoot, "ShadingButton",
                 Vector2.zero, new Vector2(320f, 120f), OnToggleShading);
             var shrt = shadingLabel.transform.parent.GetComponent<RectTransform>();
             shrt.anchorMin = shrt.anchorMax = new Vector2(1f, 1f);
@@ -146,7 +150,7 @@ namespace SliceAR
 
             // Frame-time readout toggle (top-right, below the shading button). Default off, so it costs
             // nothing until asked for; the readout itself lives in PerfHUD.
-            perfLabel = MakeButton(canvasGO.transform, "PerfButton",
+            perfLabel = MakeButton(uiRoot, "PerfButton",
                 Vector2.zero, new Vector2(320f, 120f), OnTogglePerf);
             var prt = perfLabel.transform.parent.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = new Vector2(1f, 1f);
@@ -159,7 +163,7 @@ namespace SliceAR
 
             // Render-quality preset (top-right, below the FPS toggle). Trades raymarch samples and render
             // resolution for frame rate — the 3D cut-away is fill-rate bound and needs it (see RenderQuality).
-            qualityLabel = MakeButton(canvasGO.transform, "QualityButton",
+            qualityLabel = MakeButton(uiRoot, "QualityButton",
                 Vector2.zero, new Vector2(320f, 120f), OnCycleQuality);
             var qrt = qualityLabel.transform.parent.GetComponent<RectTransform>();
             qrt.anchorMin = qrt.anchorMax = new Vector2(1f, 1f);
