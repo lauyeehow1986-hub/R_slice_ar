@@ -54,9 +54,7 @@ namespace SliceAR
             var canvas = go.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = sortingOrder;   // above the mode/LUT UI
-            var scaler = go.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            OrientationScaler.Attach(go);
             go.AddComponent<GraphicRaycaster>();
             return canvas;
         }

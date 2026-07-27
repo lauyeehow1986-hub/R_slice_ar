@@ -58,9 +58,7 @@ namespace SliceAR
             var canvasGO = new GameObject("SliceModeCanvas");
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            OrientationScaler.Attach(canvasGO);
             canvasGO.AddComponent<GraphicRaycaster>();
 
             // Everything here is anchored a fixed distance from a screen edge, so it all hangs off the

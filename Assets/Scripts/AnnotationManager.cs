@@ -469,9 +469,7 @@ namespace SliceAR
             var canvas = bcGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 300;
-            var scaler = bcGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            OrientationScaler.Attach(bcGO);
             bcGO.AddComponent<GraphicRaycaster>();
 
             // The buttons sit 40 px off the bottom edge, which is inside the navigation bar once the app

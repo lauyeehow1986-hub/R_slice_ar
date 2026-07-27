@@ -75,9 +75,7 @@ namespace SliceAR
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = UnityEngine.RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 10;
-            var scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            OrientationScaler.Attach(canvasGO);
             canvasGO.AddComponent<GraphicRaycaster>();
             var uiRoot = SafeArea.RootUnder(canvasGO.transform);
 
