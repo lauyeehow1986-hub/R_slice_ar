@@ -47,12 +47,27 @@ namespace SliceAR
             switch (level)
             {
                 case QualityLevel.Low: return 0.45f;
-                case QualityLevel.Medium: return 0.5f;
-                default: return 1f;
+                default: return 0.5f;   // Medium and High both -- see the note above RenderScaleFor
             }
         }
 
-        /// <summary>URP render scale per level. Quadratic, so this is where Low takes its cut.</summary>
+        /// <summary>
+        /// URP render scale per level. Quadratic, so this is where Low takes its cut -- and above Low it is
+        /// the only lever that still does anything.
+        ///
+        /// Comparing device screenshots of the three presets on the volume region: Low to Medium changes the
+        /// image substantially (mean absolute difference 10.9/255, sharpness +34%), but Medium to High barely
+        /// registers (1.75/255) while costing 3.7x the frame time -- 75 ms against 278 ms. Past ~256 ray steps
+        /// the march is already finer than the screen resolves at these sizes, so the extra samples mostly
+        /// re-read the same texels. High therefore drops to Medium's sampling rate and distinguishes itself
+        /// on resolution alone, which turns a 278 ms preset into roughly 120 ms for an image nobody could
+        /// pick out of a line-up.
+        ///
+        /// Caveat on that measurement: it came from JPEG screenshots of a volume filling about a third of the
+        /// screen, so a 1.75 difference is close to the compression noise floor. It bounds how much High was
+        /// buying at normal viewing sizes; it does not prove the sampling rate never matters when zoomed deep
+        /// into a large dataset.
+        /// </summary>
         private static float RenderScaleFor(QualityLevel level)
         {
             switch (level)
